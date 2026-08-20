@@ -1,11 +1,11 @@
 <?php
 $host = "localhost";
-$user = "root";
-$pass = "";
-$dbname = "khalilabad_property_tax";
+$user = "u561121976_khalilabad";
+$dbname = "u561121976_khalilabad";
+$pass = "Su#@1700";
+
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 if ($conn->connect_error) {
     die("DB Connection Failed: " . $conn->connect_error);
 }
-?>

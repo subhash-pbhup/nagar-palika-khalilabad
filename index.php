@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="hi">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
+
 <body>
 
   <!-- ═══════════════ TOP BAR ═══════════════ -->
@@ -39,7 +41,7 @@
 
       <div class="brand">
         <div class="brand-logo">
-         <img src="assets/images/logo/logo.png" alt="logo" width="70px">
+          <img src="assets/images/logo/logo.png" alt="logo" width="70px">
         </div>
         <div class="brand-text">
           <span class="brand-hi">नगर पालिका परिषद</span>
@@ -57,7 +59,7 @@
       </nav>
 
       <div class="header-ctas">
-        <a href="admin/index.php" class="btn-outline-sm">Official Login</a>
+        <a href="admin" class="btn-outline-sm">Official Login</a>
         <a href="#" class="btn-filled-sm">Citizen Login</a>
       </div>
 
@@ -96,7 +98,7 @@
       <h1 class="hero-title">
         <span class="hero-hi">नगर पालिका परिषद</span>
         <span class="hero-en">KHALILABAD</span>
-		<span class="hero-hi" style="    margin-top: 15px;">Sant Kabir Nagar, Uttar Pradesh</span>
+        <span class="hero-hi" style="    margin-top: 15px;">Sant Kabir Nagar, Uttar Pradesh</span>
       </h1>
       <p class="hero-sub">
         स्वच्छ शहर · स्वस्थ शहर · सुंदर शहर<br />
@@ -104,23 +106,36 @@
       </p>
       <div class="hero-actions">
         <a href="#eservices" class="btn-primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
           E-Services
         </a>
         <a href="#" class="btn-ghost-hero">
           Know Your Tax Collector
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
         </a>
       </div>
 
       <div class="hero-stats">
-        <div class="hs"><span class="hs-num" data-target="25">25</span><span>+</span><p>Wards</p></div>
+        <div class="hs"><span class="hs-num" data-target="25">25</span><span>+</span>
+          <p>Wards</p>
+        </div>
         <div class="hs-div"></div>
-        <div class="hs"><span class="hs-num" data-target="1">1</span><span>L+</span><p>Citizens</p></div>
+        <div class="hs"><span class="hs-num" data-target="1">1</span><span>L+</span>
+          <p>Citizens</p>
+        </div>
         <div class="hs-div"></div>
-        <div class="hs"><span class="hs-num" data-target="29">29</span><span>+</span><p>Services</p></div>
+        <div class="hs"><span class="hs-num" data-target="29">29</span><span>+</span>
+          <p>Services</p>
+        </div>
         <div class="hs-div"></div>
-        <div class="hs"><span class="hs-num" data-target="1997">1997</span><span></span><p>Est. Year</p></div>
+        <div class="hs"><span class="hs-num" data-target="1997">1997</span><span></span>
+          <p>Est. Year</p>
+        </div>
       </div>
     </div>
 
@@ -134,8 +149,10 @@
             </div>
             <div class="building-body">
               <div class="pillars">
-                <div class="pillar"></div><div class="pillar"></div>
-                <div class="pillar"></div><div class="pillar"></div>
+                <div class="pillar"></div>
+                <div class="pillar"></div>
+                <div class="pillar"></div>
+                <div class="pillar"></div>
                 <div class="pillar"></div>
               </div>
               <div class="building-sign">
@@ -146,7 +163,9 @@
           </div>
         </div>
         <div class="frame-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
           Government of UP Verified
         </div>
       </div>
@@ -161,7 +180,9 @@
   <!-- ═══════════════ TICKER ═══════════════ -->
   <div class="ticker-wrap">
     <span class="ticker-label">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+      </svg>
       Notice
     </span>
     <div class="ticker-track">
@@ -233,10 +254,18 @@
           <p>Khalilabad Nagar Palika Parishad is the municipal governing body responsible for civic administration and infrastructure development in Khalilabad city, Uttar Pradesh. Committed to creating a clean, green, and inclusive urban environment, the Parishad strives to improve the quality of life for its citizens through effective governance, sanitation, public services, and modern urban planning.</p>
           <p>With a focus on transparency, digitization, and community participation, Khalilabad Nagar Palika is steadily working toward building a sustainable and progressive city.</p>
           <div class="about-values">
-            <div class="val-item"><div class="val-dot"></div><span>स्वच्छता — Cleanliness</span></div>
-            <div class="val-item"><div class="val-dot"></div><span>पारदर्शिता — Transparency</span></div>
-            <div class="val-item"><div class="val-dot"></div><span>विकास — Development</span></div>
-            <div class="val-item"><div class="val-dot"></div><span>सेवा — Public Service</span></div>
+            <div class="val-item">
+              <div class="val-dot"></div><span>स्वच्छता — Cleanliness</span>
+            </div>
+            <div class="val-item">
+              <div class="val-dot"></div><span>पारदर्शिता — Transparency</span>
+            </div>
+            <div class="val-item">
+              <div class="val-dot"></div><span>विकास — Development</span>
+            </div>
+            <div class="val-item">
+              <div class="val-dot"></div><span>सेवा — Public Service</span>
+            </div>
           </div>
         </div>
         <div class="about-cards-col">
@@ -285,7 +314,10 @@
             <h3>Shri Yogi Adityanath</h3>
             <p class="leader-role">Chief Minister, Uttar Pradesh</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Lok Bhawan, Lucknow, Uttar Pradesh</span>
             </div>
             <a href="https://cmupnic.in" class="leader-link" target="_blank" rel="noopener">cmupnic.in ↗</a>
@@ -302,7 +334,10 @@
             <h3>Honourable Sri Jagat Jaiswal Sir</h3>
             <p class="leader-role">Chairman, Nagar Palika Parishad Khalilabad</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Nagar Palika Parishad Khalilabad, UP, 272175</span>
             </div>
             <a href="mailto:alkasingh@gmail.com" class="leader-link">chairmannpk@gmail.com ✉</a>
@@ -319,16 +354,19 @@
             <h3>Sri Awdhesh Kumar Bharti </h3>
             <p class="leader-role">Executive Officer, Nagar Palika Parishad</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Nagar Palika Parishad, Khalilabad, UP – 272175</span>
             </div>
             <a href="mailto:eokldskn@gmail.com" class="leader-link">eokldskn@gmail.com ✉</a>
           </div>
         </div>
       </div>
-	  
-	  
-	  
+
+
+
       <div class="leaders-grid" style="margin-top:25px;">
         <!-- CM -->
         <div class="leader-card">
@@ -337,10 +375,13 @@
             <span><img src="assets/images/homepage/nvm.png"></span>
           </div>
           <div class="leader-body">
-            <h3>Shri  A.k. Sharma</h3>
+            <h3>Shri A.k. Sharma</h3>
             <p class="leader-role">Nagri Vikas Mantri</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Lal Bahadur Shastri Bhawan (Annexe), Sarojini Naidu Marg, Secretariat, Lucknow, Uttar Pradesh 226001</span>
             </div>
             <a href="https://aks4bjp@gmail.com" class="leader-link" target="_blank" rel="noopener"> aks4bjp@gmail.com ↗</a>
@@ -357,7 +398,10 @@
             <h3>Shri P. Guruprashad Sir</h3>
             <p class="leader-role">Pramukh Sachiv</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Bapu Bhawan and Lal Bahadur Shastri Bhawan (Annexe), Lucknow.</span>
             </div>
             <a href="mailto:psecup.urbandev@nic.in" class="leader-link">psecup.urbandev@nic.in ✉</a>
@@ -374,7 +418,10 @@
             <h3>Shri Anuj jha </h3>
             <p class="leader-role">Director, Urban Development Department</p>
             <div class="leader-detail">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span>Sector 7, Gomti Nagar, Ardonamau, Lucknow, Uttar Pradesh 226002</span>
             </div>
             <a href="mailto:diruplb2012@gmail.com" class="leader-link">diruplb2012@gmail.com ✉</a>
@@ -483,7 +530,7 @@
             <div class="ci-icon">📍</div>
             <div>
               <h4>Address</h4>
-              <p>Nagar Palika Parishad Khalilabad , Near Samaymata Mandir, Khalilabad, Sant Kabir Nagar<br> Uttar Pradesh -  272175</p>
+              <p>Nagar Palika Parishad Khalilabad , Near Samaymata Mandir, Khalilabad, Sant Kabir Nagar<br> Uttar Pradesh - 272175</p>
             </div>
           </div>
           <div class="ci-item">
@@ -530,7 +577,9 @@
               <textarea id="cmsg" rows="5" placeholder="Describe your issue or query..." required></textarea>
             </div>
             <button type="submit" class="btn-primary full" id="cfBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
               Send Message
             </button>
             <p class="cf-success" id="cfSuccess">✅ Your message has been sent. We'll call you shortly!</p>
@@ -548,7 +597,8 @@
         <div class="ft-grid">
           <div class="ft-brand">
             <div class="ft-logo">
-            <img src="assets/images/logo/logo.png" style="width:60px; margin-top: -5px;"></div>
+              <img src="assets/images/logo/logo.png" style="width:60px; margin-top: -5px;">
+            </div>
             <div>
               <p class="ft-name">Nagar Palika Parishad Khalilabad,<br> Sant Kabir Nagar.</p>
               <p class="ft-tagline">स्वच्छ शहर · स्वस्थ शहर · सुंदर शहर</p>
@@ -585,7 +635,7 @@
     </div>
     <div class="footer-bottom">
       <div class="container">
-         <p>© Copyright 2026 | <strong>Nagar Palika Parishad Khalilabad, Sant Kabir Nagar</strong> | All Rights Reserved.</p>
+        <p>© Copyright 2026 | <strong>Nagar Palika Parishad Khalilabad, Sant Kabir Nagar</strong> | All Rights Reserved.</p>
         <p>Designed &amp; Developed by <a href="#" target="_blank" rel="noopener">Glorious Netcom Pvt Ltd</a></p>
       </div>
     </div>
@@ -596,4 +646,5 @@
 
   <script src="assets/js/script.js"></script>
 </body>
+
 </html>

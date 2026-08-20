@@ -116,9 +116,10 @@ $retained_username = $retained_username ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-950">
+
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>नगर पालिका परिषद - Khalilabad, Sant Kabir Nagar</title>
 
     <!-- FAVICON -->
@@ -133,28 +134,41 @@ $retained_username = $retained_username ?? '';
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .font-hindi { font-family: 'Tiro Devanagari Hindi', serif; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .font-hindi {
+            font-family: 'Tiro Devanagari Hindi', serif;
+        }
 
         /* Subtle dot-grid background */
         .bg-grid-pattern {
-            background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 0);
+            background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0);
             background-size: 28px 28px;
         }
 
         /* Icon turns green when its sibling input is focused */
-        .input-group:focus-within .input-icon { color: #10b981; }
+        .input-group:focus-within .input-icon {
+            color: #10b981;
+        }
 
-        .service-chip { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-        .service-chip:hover { transform: translateY(-2px); }
+        .service-chip {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .service-chip:hover {
+            transform: translateY(-2px);
+        }
     </style>
 </head>
+
 <body class="min-h-full bg-slate-950 text-slate-100 bg-grid-pattern flex items-center justify-center p-4 sm:p-6 lg:p-8">
 
     <!-- ── Top Nav Bar ── -->
     <div class="fixed top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center z-20 pointer-events-none">
-        <a href="../index.php"
-           class="pointer-events-auto group inline-flex items-center gap-2 px-4 py-2 rounded-full
+        <a href="../"
+            class="pointer-events-auto group inline-flex items-center gap-2 px-4 py-2 rounded-full
                   bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300
                   hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-lg">
             <i class="fas fa-arrow-left text-emerald-400 group-hover:-translate-x-1 transition-transform"></i>
@@ -179,9 +193,9 @@ $retained_username = $retained_username ?? '';
             <div class="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
                 <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md shrink-0">
                     <img src="../assets/images/logo/logo.png"
-                         alt="Municipal Logo"
-                         class="h-16 sm:h-20 w-auto object-contain"
-                         onerror="this.style.display='none'">
+                        alt="Municipal Logo"
+                        class="h-16 sm:h-20 w-auto object-contain"
+                        onerror="this.style.display='none'">
                 </div>
 
                 <div class="space-y-1">
@@ -275,9 +289,9 @@ $retained_username = $retained_username ?? '';
                         <div class="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800
                                     flex items-center justify-center p-1 shadow-inner shrink-0">
                             <img src="../assets/images/logo/logo.png"
-                                 alt="Logo"
-                                 class="w-full h-full object-contain"
-                                 onerror="this.onerror=null; this.style.display='none'">
+                                alt="Logo"
+                                class="w-full h-full object-contain"
+                                onerror="this.onerror=null; this.style.display='none'">
                         </div>
                         <div>
                             <h2 class="text-lg font-bold text-white">Official Login</h2>
@@ -292,16 +306,16 @@ $retained_username = $retained_username ?? '';
 
                 <!-- ── Error Alert ── -->
                 <?php if ($error): ?>
-                <div class="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30
+                    <div class="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30
                             text-red-300 text-xs flex items-center gap-3">
-                    <i class="fas fa-circle-exclamation text-red-400 text-sm shrink-0"></i>
-                    <span><?= htmlspecialchars($error) ?></span>
-                </div>
+                        <i class="fas fa-circle-exclamation text-red-400 text-sm shrink-0"></i>
+                        <span><?= htmlspecialchars($error) ?></span>
+                    </div>
                 <?php endif; ?>
 
                 <!-- ── Caps Lock Warning (JS) ── -->
                 <div id="capsWarning"
-                     class="hidden mb-4 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30
+                    class="hidden mb-4 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30
                             text-amber-300 text-xs flex items-center gap-2">
                     <i class="fas fa-triangle-exclamation text-amber-400"></i>
                     <span><strong>Caps Lock</strong> is active</span>
@@ -320,12 +334,12 @@ $retained_username = $retained_username ?? '';
                                 <i class="fas fa-user input-icon text-slate-500 transition-colors text-sm"></i>
                             </div>
                             <input type="text"
-                                   name="username"
-                                   placeholder="e.g. admin or surveyor_01"
-                                   value="<?= $retained_username ?>"
-                                   required
-                                   autocomplete="username"
-                                   class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
+                                name="username"
+                                placeholder="e.g. admin or surveyor_01"
+                                value="<?= $retained_username ?>"
+                                required
+                                autocomplete="username"
+                                class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
                                           py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500
                                           focus:outline-none focus:border-emerald-500 focus:ring-1
                                           focus:ring-emerald-500 transition-all">
@@ -340,19 +354,19 @@ $retained_username = $retained_username ?? '';
                                 <i class="fas fa-key input-icon text-slate-500 transition-colors text-sm"></i>
                             </div>
                             <input type="password"
-                                   name="password"
-                                   id="passwordInput"
-                                   placeholder="••••••••"
-                                   required
-                                   autocomplete="current-password"
-                                   class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
+                                name="password"
+                                id="passwordInput"
+                                placeholder="••••••••"
+                                required
+                                autocomplete="current-password"
+                                class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
                                           py-3 pl-10 pr-10 text-sm text-white placeholder-slate-500
                                           focus:outline-none focus:border-emerald-500 focus:ring-1
                                           focus:ring-emerald-500 transition-all">
                             <button type="button"
-                                    id="passwordToggle"
-                                    aria-label="Toggle password visibility"
-                                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center
+                                id="passwordToggle"
+                                aria-label="Toggle password visibility"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center
                                            text-slate-500 hover:text-slate-300 transition-colors">
                                 <i class="far fa-eye-slash text-sm" id="toggleIcon"></i>
                             </button>
@@ -363,8 +377,8 @@ $retained_username = $retained_username ?? '';
                     <div class="flex items-center justify-between text-xs pt-1">
                         <label class="flex items-center gap-2 cursor-pointer select-none">
                             <input type="checkbox"
-                                   name="remember_me"
-                                   class="w-4 h-4 rounded border-slate-800 bg-slate-950
+                                name="remember_me"
+                                class="w-4 h-4 rounded border-slate-800 bg-slate-950
                                           text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900">
                             <span class="text-slate-400">Remember session</span>
                         </label>
@@ -375,7 +389,7 @@ $retained_username = $retained_username ?? '';
 
                     <!-- Submit -->
                     <button type="submit"
-                            class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600
+                        class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600
                                    hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl
                                    shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60
                                    active:scale-[0.99] transition-all flex items-center justify-center gap-2 group">
@@ -400,22 +414,23 @@ $retained_username = $retained_username ?? '';
     <!-- ── JavaScript ── -->
     <script>
         /* Password show/hide toggle */
-        const passwordInput  = document.getElementById('passwordInput');
+        const passwordInput = document.getElementById('passwordInput');
         const passwordToggle = document.getElementById('passwordToggle');
-        const toggleIcon     = document.getElementById('toggleIcon');
+        const toggleIcon = document.getElementById('toggleIcon');
 
-        passwordToggle.addEventListener('click', function () {
+        passwordToggle.addEventListener('click', function() {
             const isHidden = passwordInput.getAttribute('type') === 'password';
             passwordInput.setAttribute('type', isHidden ? 'text' : 'password');
             toggleIcon.classList.toggle('fa-eye-slash', !isHidden);
-            toggleIcon.classList.toggle('fa-eye',       isHidden);
+            toggleIcon.classList.toggle('fa-eye', isHidden);
         });
 
         /* Caps Lock warning */
         const capsWarning = document.getElementById('capsWarning');
-        passwordInput.addEventListener('keyup', function (e) {
+        passwordInput.addEventListener('keyup', function(e) {
             capsWarning.classList.toggle('hidden', !e.getModifierState('CapsLock'));
         });
     </script>
 </body>
+
 </html>
