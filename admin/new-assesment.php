@@ -1319,7 +1319,9 @@ if ($mohalla_result) {
         const ward_id = $(this).val();
         const mohallaSelect = $("#mohalla_id");
 
-        // Mohalla dropdown reset
+        // Mohalla dropdown reset aur clear 
+        // mohallaSelect.html('<option value="">--Select Mohalla--</option>');
+        mohallaSelect.html('');
         mohallaSelect.prop("disabled", true);
 
         if (ward_id !== "") {

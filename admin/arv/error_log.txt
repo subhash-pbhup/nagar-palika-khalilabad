@@ -8,3 +8,4 @@
 [30-Aug-2026 13:32:56 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [31-Aug-2026 07:00:18 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [31-Aug-2026 10:12:34 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[31-Aug-2026 09:25:54 UTC] PHP Notice:  Only variables should be passed by reference in /home/u561121976/domains/techsans.in/public_html/gov-products/nagar-palika-khalilabad/admin/arv/store_arv.php on line 147

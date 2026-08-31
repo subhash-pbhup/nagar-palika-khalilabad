@@ -1,0 +1,12 @@
+[2026-08-31 09:26:44] ARV BULK IMPORT STARTED: ARV_Tax_Template_20_Dummy_Data.csv
+[2026-08-31 09:26:44] [SKIPPED] Row 2: Property ID 0952601002520025R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 3: Property ID 0952601002520027R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 4: Property ID 0952601002520029R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 5: Property ID 0952601002520031R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 6: Property ID 0952601002520033R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 7: Property ID 0952601002520035R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 8: Property ID 0952601002520037R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 9: Property ID 0952601002520039R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 10: Property ID 0952601002520041R already exists.
+[2026-08-31 09:26:44] [SKIPPED] Row 11: Property ID 0952601002520043R already exists.
+[2026-08-31 09:26:44] FINISHED | Success: 0 | Skipped: 10 | Errors: 0

@@ -336,7 +336,7 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
           <div>
             <label class="block text-sm font-medium mb-2 req">Mohalla Name</label>
             <select id="mohalla_select" class="w-full donezo-input" required disabled>
-              <option value="">--Select Mohalla--</option>
+              <!-- <option value="">--Select Mohalla--</option> -->
             </select>
           </div>
 
@@ -997,7 +997,8 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       const mohallaIdInput = document.getElementById('mohalla_id');
       const currentWardInput = document.getElementById('current_ward');
 
-      mohallaSelect.innerHTML = '<option value="">--Select Mohalla--</option>';
+      mohallaSelect.innerHTML = '';
+      // mohallaSelect.innerHTML = '<option value="">--Select Mohalla--</option>';
       mohallaSelect.disabled = true;
       wardIdInput.value = wardId || '';
       currentWardInput.value = wardId || '';
