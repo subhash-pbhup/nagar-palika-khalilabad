@@ -1,7 +1,7 @@
 <?php
 session_start();
 // ✅ Admin check
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'ADMIN') {
   header("Location: index.php");
   exit;
 }

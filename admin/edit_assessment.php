@@ -48,9 +48,37 @@ if (!$assessment_data) {
   exit;
 }
 
-$current_ward = htmlspecialchars($assessment_data['ward'] ?? '');
-$current_holding = htmlspecialchars($assessment_data['new_holding'] ?? '');
-$previous_holding_db = htmlspecialchars($assessment_data['previous_holding'] ?? '');
+// Current location / Property ID data
+$current_ward_id = (int)($assessment_data['ward_id'] ?? 0);
+$current_mohalla_id = (int)($assessment_data['mohalla_id'] ?? 0);
+$current_zone_id = (int)($assessment_data['zone_id'] ?? 1);
+if ($current_zone_id <= 0) {
+  $current_zone_id = 1;
+}
+
+// Backward compatibility: old records may only have `ward`
+if ($current_ward_id <= 0 && !empty($assessment_data['ward'])) {
+  $current_ward_id = (int)$assessment_data['ward'];
+}
+
+$current_ward = (string)$current_ward_id;
+$current_holding = $assessment_data['new_holding'] ?? '';
+$previous_holding_db = $assessment_data['previous_holding'] ?? '';
+$current_property_id = $assessment_data['property_id'] ?? '';
+
+// Fetch all wards
+$wards_data = [];
+$wards_result = $conn->query("SELECT ward_id, ward_no FROM wards ORDER BY ward_id ASC");
+if ($wards_result) {
+  $wards_data = $wards_result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Fetch all mohallas
+$mohalla_data = [];
+$mohalla_result = $conn->query("SELECT mohalla_id, ward_id, mohalla_name FROM mohalla ORDER BY ward_id ASC, mohalla_id ASC");
+if ($mohalla_result) {
+  $mohalla_data = $mohalla_result->fetch_all(MYSQLI_ASSOC);
+}
 
 
 // ----------------------------------------------------
@@ -112,7 +140,7 @@ $floors_json = json_encode($js_floors);
 // 5. Image Paths & Display Logic
 // ----------------------------------------------------
 $image_base_url = '';
-$holding_folder = !empty($current_holding) ? htmlspecialchars($current_holding) . '/' : '';
+$holding_folder = !empty($current_holding) ? htmlspecialchars($current_holding, ENT_QUOTES, 'UTF-8') . '/' : '';
 
 function get_assessment_file_path($base_url, $holding_folder, $filename)
 {
@@ -139,7 +167,6 @@ $sup_doc1_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
 $sup_doc2_path = get_assessment_file_path($image_base_url, $holding_folder, $assessment_data['supporting_doc_2'] ?? '');
 $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $assessment_data['supporting_doc_3'] ?? '');
 
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -267,10 +294,17 @@ $conn->close();
 
 
       <input type="hidden" name="assessment_id" value="<?= htmlspecialchars($assessment_id) ?>">
-      <input type="hidden" id="current_ward" name="ward" value="<?= $current_ward ?>">
-      <input type="hidden" id="initial_holding_no" name="initial_holding" value="<?= $current_holding ?>">
-      <input type="hidden" name="previous_holding_db" value="<?= $previous_holding_db ?>">
-      <input type="hidden" id="final_new_holding" name="new_holding" value="<?= $current_holding ?>">
+
+      <input type="hidden" id="zone_id" name="zone_id" value="1">
+      <input type="hidden" id="ward_id" name="ward_id" value="<?= (int)$current_ward_id ?>">
+      <input type="hidden" id="mohalla_id" name="mohalla_id" value="<?= (int)$current_mohalla_id ?>">
+      <input type="hidden" id="property_id" name="property_id" value="<?= htmlspecialchars($current_property_id, ENT_QUOTES, 'UTF-8') ?>">
+
+      <!-- Backward compatibility with existing update code -->
+      <input type="hidden" id="current_ward" name="ward" value="<?= htmlspecialchars($current_ward, ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" id="initial_holding_no" name="initial_holding" value="<?= htmlspecialchars($current_holding, ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="previous_holding_db" value="<?= htmlspecialchars($previous_holding_db, ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" id="final_new_holding" name="new_holding" value="<?= htmlspecialchars($current_holding, ENT_QUOTES, 'UTF-8') ?>">
 
       <section class="donezo-card-form p-6">
         <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-900">Property Details</h2>
@@ -288,7 +322,31 @@ $conn->close();
 
           <div>
             <label class="block text-sm font-medium mb-2 req">Ward No</label>
-            <input type="text" value="<?= $current_ward ?? 'N/A' ?>" class="w-full donezo-input readonly-input" readonly>
+            <select id="ward_select" class="w-full donezo-input" required>
+              <option value="">--Select Ward--</option>
+              <?php foreach ($wards_data as $ward): ?>
+                <option value="<?= (int)$ward['ward_id'] ?>"
+                  <?= ((int)$ward['ward_id'] === $current_ward_id) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($ward['ward_no'], ENT_QUOTES, 'UTF-8') ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2 req">Mohalla Name</label>
+            <select id="mohalla_select" class="w-full donezo-input" required disabled>
+              <option value="">--Select Mohalla--</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Property ID</label>
+            <input type="text"
+              value="<?= htmlspecialchars($current_property_id, ENT_QUOTES, 'UTF-8') ?>"
+              class="w-full donezo-input readonly-input"
+              readonly
+              placeholder="Property ID">
           </div>
 
           <div class="md:col-span-1">
@@ -485,7 +543,7 @@ $conn->close();
       <section class="donezo-card-form p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-bold">Owner Details</h2>
-          <button type="button" onclick="openOwnerModal()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"><i class="fa fa-plus" aria-hidden="true"></i>&nbsp; Add Owner</button>
+          <button type="button" id="addOwnerBtn" onclick="openOwnerModal()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"><i class="fa fa-plus" aria-hidden="true"></i>&nbsp; Add Owner</button>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-sm">
@@ -923,6 +981,71 @@ $conn->close();
     let ownerTempIdCounter = owners.length > 0 ? Math.max(...owners.map(o => o.temp_id)) + 1 : 1;
 
     // -----------------------------------------------------------------
+    // WARD -> MOHALLA LOGIC
+    // -----------------------------------------------------------------
+    const MOHALLA_DATA = <?= json_encode(
+                            $mohalla_data,
+                            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                          ) ?>;
+
+    const INITIAL_WARD_ID = <?= (int)$current_ward_id ?>;
+    const INITIAL_MOHALLA_ID = <?= (int)$current_mohalla_id ?>;
+
+    function loadMohallas(wardId, selectedMohallaId = '') {
+      const mohallaSelect = document.getElementById('mohalla_select');
+      const wardIdInput = document.getElementById('ward_id');
+      const mohallaIdInput = document.getElementById('mohalla_id');
+      const currentWardInput = document.getElementById('current_ward');
+
+      mohallaSelect.innerHTML = '<option value="">--Select Mohalla--</option>';
+      mohallaSelect.disabled = true;
+      wardIdInput.value = wardId || '';
+      currentWardInput.value = wardId || '';
+      mohallaIdInput.value = '';
+
+      if (!wardId) return;
+
+      const filtered = MOHALLA_DATA.filter(function(item) {
+        return String(item.ward_id) === String(wardId);
+      });
+
+      filtered.forEach(function(item) {
+        const option = document.createElement('option');
+        option.value = item.mohalla_id;
+        option.textContent = item.mohalla_name;
+
+        if (String(item.mohalla_id) === String(selectedMohallaId)) {
+          option.selected = true;
+        }
+
+        mohallaSelect.appendChild(option);
+      });
+
+      mohallaSelect.disabled = filtered.length === 0;
+
+      if (selectedMohallaId && filtered.some(
+          item => String(item.mohalla_id) === String(selectedMohallaId)
+        )) {
+        mohallaIdInput.value = selectedMohallaId;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const wardSelect = document.getElementById('ward_select');
+      const mohallaSelect = document.getElementById('mohalla_select');
+
+      loadMohallas(INITIAL_WARD_ID, INITIAL_MOHALLA_ID);
+
+      wardSelect.addEventListener('change', function() {
+        loadMohallas(this.value, '');
+      });
+
+      mohallaSelect.addEventListener('change', function() {
+        document.getElementById('mohalla_id').value = this.value;
+      });
+    });
+
+    // -----------------------------------------------------------------
     // HOLDING NUMBER VALIDATION LOGIC
     // -----------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', function() {
@@ -1165,8 +1288,20 @@ $conn->close();
         return;
       }
 
+      // Check whether this is an existing floor or a new floor.
+      const editId = document.getElementById('f_edit_id').value;
+      const editTempId = editId ? parseInt(editId, 10) : 0;
+      const existingFloor = editTempId ?
+        floors.find(f => Number(f.temp_id) === editTempId) :
+        null;
+
       const newFloor = {
-        floor_no: f_floor_no.value,
+        // IMPORTANT:
+        // Existing floor keeps its real DB ID.
+        // New floor gets db_id = 0.
+        db_id: existingFloor ? Number(existingFloor.db_id || 0) : 0,
+
+        floor_no: f_floor_no.value.trim(),
         date_from: f_date_from.value,
         date_to: f_date_to.value,
         residential_type: f_usage.value === 'Fully Residential' ? 'Residential' : '',
@@ -1175,23 +1310,35 @@ $conn->close();
         build_up_area: parseFloat(f_buildup.value),
         usage_type: f_usage.value,
         non_residential_group: isNonResOrIndustrial ? f_non_residential_group.value : '',
-        property_name: isNonResOrIndustrial ? f_property_name.value : '',
+        property_name: isNonResOrIndustrial ? f_property_name.value : ''
       };
 
-      const editId = document.getElementById('f_edit_id').value;
-      if (editId) {
-        const index = floors.findIndex(f => f.temp_id === parseInt(editId));
-        if (index !== -1) {
-          // Merge and preserve db_id
-          floors[index] = {
-            ...floors[index],
-            ...newFloor
-          };
-        }
+      if (existingFloor) {
+
+        // Preserve temp_id and DB id while updating the frontend object.
+        floors = floors.map(function(floor) {
+
+          if (Number(floor.temp_id) === editTempId) {
+            return {
+              ...floor,
+              ...newFloor,
+              temp_id: floor.temp_id,
+              db_id: Number(floor.db_id || 0)
+            };
+          }
+
+          return floor;
+        });
+
       } else {
+
+        // New floor: frontend temp ID + DB ID 0.
         newFloor.temp_id = floorTempIdCounter++;
+        newFloor.db_id = 0;
+
         floors.push(newFloor);
       }
+
       closeFloorModal();
       renderFloorsTable();
     }
@@ -1235,7 +1382,25 @@ $conn->close();
           deleteCell.innerHTML = `<button type="button" onclick="deleteFloor(${floor.temp_id})" class="text-red-600 hover:text-red-800 p-1"><i class="fa fa-trash"></i></button>`;
         });
       }
-      document.getElementById('floors_json').value = JSON.stringify(floors);
+      // Keep the real DB ID in the JSON sent to PHP.
+      document.getElementById('floors_json').value = JSON.stringify(
+        floors.map(function(floor) {
+          return {
+            temp_id: Number(floor.temp_id || 0),
+            db_id: Number(floor.db_id || 0),
+            floor_no: floor.floor_no || '',
+            date_from: floor.date_from || '',
+            date_to: floor.date_to || '',
+            residential_type: floor.residential_type || '',
+            construction_type: floor.construction_type || '',
+            occupancy_type: floor.occupancy_type || '',
+            build_up_area: Number(floor.build_up_area || 0),
+            usage_type: floor.usage_type || '',
+            non_residential_group: floor.non_residential_group || '',
+            property_name: floor.property_name || ''
+          };
+        })
+      );
     }
 
     // -----------------------------------------------------------------
@@ -1268,9 +1433,24 @@ $conn->close();
         });
       }
       document.getElementById('owners_json').value = JSON.stringify(owners);
+
+      const addOwnerBtn = document.getElementById('addOwnerBtn');
+      if (addOwnerBtn) {
+        addOwnerBtn.disabled = owners.length >= 1;
+        addOwnerBtn.classList.toggle('opacity-50', owners.length >= 1);
+        addOwnerBtn.classList.toggle('cursor-not-allowed', owners.length >= 1);
+        addOwnerBtn.innerHTML = owners.length >= 1 ?
+          '<i class="fa fa-check"></i>&nbsp; Owner Added' :
+          '<i class="fa fa-plus"></i>&nbsp; Add Owner';
+      }
     }
 
     function openOwnerModal(tempId = null) {
+      if (tempId === null && owners.length >= 1) {
+        alert('Only one owner can be added to a property.');
+        return;
+      }
+
       const o_title = document.getElementById('o_title');
       const o_name = document.getElementById('o_name');
       const o_careof = document.getElementById('o_careof');
@@ -1524,15 +1704,28 @@ $conn->close();
 
     // सुनिश्चित करें कि यह फंक्शन आपके फॉर्म सबमिशन हैंडलर (जैसे onsubmit="return prepareFormSubmission()") में कॉल हो रहा है।
     function prepareFormSubmission() {
-      // 1. Owners और Floors के updated data को hidden fields में JSON stringify करें (यह आपके मौजूदा कोड में होना चाहिए)
+      const wardId = document.getElementById('ward_id').value;
+      const mohallaId = document.getElementById('mohalla_id').value;
+
+      if (!wardId) {
+        alert('Please select Ward.');
+        return false;
+      }
+
+      if (!mohallaId) {
+        alert('Please select Mohalla.');
+        return false;
+      }
+
+      // Keep legacy ward field synchronized.
+      document.getElementById('current_ward').value = wardId;
+
       document.getElementById('owners_data').value = JSON.stringify(owners);
       document.getElementById('floors_data').value = JSON.stringify(floors);
-
-      // 2. Deleted IDs arrays को JSON stringify करके नए hidden fields में सेट करें
       document.getElementById('deleted_owner_ids').value = JSON.stringify(deletedOwnerIds);
       document.getElementById('deleted_floor_ids').value = JSON.stringify(deletedFloorIds);
 
-      return true; // Form submission allow करें
+      return true;
     }
   </script>
   <script src="js/mystyle.js"></script>

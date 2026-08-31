@@ -2,39 +2,49 @@
 
 session_start();
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+
+// =========================================================
+// ADMIN ACCESS ONLY
+// =========================================================
+
+if (
+    !isset($_SESSION['user_id']) ||
+    ($_SESSION['role'] ?? '') !== 'ADMIN'
+) {
     header("Location: index.php");
     exit;
 }
 
-include "./include/header.php";
-include "./include/sidebar.php";
-include "./include/db.php";
+
+require_once "./db.php";
 
 
-/* =========================================================
-   VARIABLES
-========================================================= */
+// =========================================================
+// VARIABLES
+// =========================================================
 
 $message = "";
 $message_type = "";
 
 $upload_dir = __DIR__ . "/admin-uploads/";
 
+
 if (!is_dir($upload_dir)) {
     mkdir($upload_dir, 0755, true);
 }
 
 
-/* =========================================================
-   DELETE USER
-========================================================= */
+// =========================================================
+// DELETE USER
+// =========================================================
 
 if (isset($_GET['delete'])) {
 
-    $id = (int) $_GET['delete'];
+    $delete_id = (int) $_GET['delete'];
 
-    if ($id == (int) $_SESSION['user_id']) {
+
+    // Prevent self delete
+    if ($delete_id === (int) $_SESSION['user_id']) {
 
         $message = "You cannot delete your own account.";
         $message_type = "danger";
@@ -45,24 +55,46 @@ if (isset($_GET['delete'])) {
             SELECT profile_pic
             FROM users
             WHERE id = ?
+            LIMIT 1
         ");
 
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
+        if ($stmt) {
 
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
+            $stmt->bind_param(
+                "i",
+                $delete_id
+            );
 
-        if ($user && !empty($user['profile_pic'])) {
+            $stmt->execute();
 
-            $old_file =
-                $upload_dir .
-                $user['profile_pic'];
+            $result =
+                $stmt->get_result();
 
-            if (file_exists($old_file)) {
-                unlink($old_file);
+            $user =
+                $result->fetch_assoc();
+
+            $stmt->close();
+
+
+            // Delete profile image
+            if (
+                $user &&
+                !empty($user['profile_pic'])
+            ) {
+
+                $old_file =
+                    $upload_dir .
+                    $user['profile_pic'];
+
+                if (
+                    file_exists($old_file)
+                ) {
+
+                    unlink($old_file);
+                }
             }
         }
+
 
         // Delete user
         $stmt = $conn->prepare("
@@ -70,24 +102,46 @@ if (isset($_GET['delete'])) {
             WHERE id = ?
         ");
 
-        $stmt->bind_param("i", $id);
+        if ($stmt) {
 
-        if ($stmt->execute()) {
+            $stmt->bind_param(
+                "i",
+                $delete_id
+            );
 
-            $message = "User deleted successfully.";
-            $message_type = "success";
+
+            if ($stmt->execute()) {
+
+                $message =
+                    "User deleted successfully.";
+
+                $message_type =
+                    "success";
+            } else {
+
+                $message =
+                    "Unable to delete user.";
+
+                $message_type =
+                    "danger";
+            }
+
+            $stmt->close();
         } else {
 
-            $message = "Unable to delete user.";
-            $message_type = "danger";
+            $message =
+                "Unable to prepare delete query.";
+
+            $message_type =
+                "danger";
         }
     }
 }
 
 
-/* =========================================================
-   ADD / UPDATE USER
-========================================================= */
+// =========================================================
+// ADD / UPDATE USER
+// =========================================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -109,10 +163,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password =
         $_POST['password'] ?? '';
 
-    /*
-     * IMPORTANT:
-     * Role is now role_id
-     */
     $role_id =
         (int)($_POST['role'] ?? 0);
 
@@ -120,129 +170,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         trim($_POST['status'] ?? 'active');
 
 
-    /* =====================================================
-       VALIDATION
-    ====================================================== */
+    // =====================================================
+    // VALIDATION
+    // =====================================================
 
-    if ($username === '' || $name === '' || $email === '') {
+    if (
+        $username === '' ||
+        $name === '' ||
+        $email === ''
+    ) {
 
         $message =
             "Username, Name and Email are required.";
 
         $message_type =
             "danger";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    } elseif (
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
 
         $message =
             "Please enter a valid email address.";
 
         $message_type =
             "danger";
-    } elseif ($role_id <= 0) {
+    } elseif (
+        $role_id <= 0
+    ) {
 
         $message =
             "Please select a role.";
 
         $message_type =
             "danger";
+    } elseif (
+        !in_array(
+            $status,
+            ['active', 'inactive'],
+            true
+        )
+    ) {
+
+        $message =
+            "Invalid user status.";
+
+        $message_type =
+            "danger";
     } else {
 
 
-        /* =================================================
-           CHECK ROLE EXISTS
-        ================================================== */
+        // =================================================
+        // CHECK ROLE
+        // =================================================
 
-        $role_check = $conn->prepare("
-            SELECT id
-            FROM roles
-            WHERE id = ?
-            AND status = 1
-            LIMIT 1
-        ");
+        $role_check =
+            $conn->prepare("
+                SELECT id, role_name
+                FROM roles
+                WHERE id = ?
+                AND status = 1
+                LIMIT 1
+            ");
 
-        $role_check->bind_param(
-            "i",
-            $role_id
-        );
-
-        $role_check->execute();
-
-        $role_result =
-            $role_check->get_result();
-
-
-        if ($role_result->num_rows === 0) {
+        if (!$role_check) {
 
             $message =
-                "Selected role does not exist.";
+                "Role query failed.";
 
             $message_type =
                 "danger";
         } else {
 
+            $role_check->bind_param(
+                "i",
+                $role_id
+            );
 
-            /* =============================================
-               ADD USER
-            ============================================== */
+            $role_check->execute();
 
-            if ($action === 'add') {
+            $role_result =
+                $role_check->get_result();
 
+            $role_row = $role_result->fetch_assoc();
 
-                /* -----------------------------------------
-                   DUPLICATE USERNAME
-                ------------------------------------------ */
+            $role_exists = !empty($role_row);
 
-                $stmt = $conn->prepare("
-                    SELECT id
-                    FROM users
-                    WHERE username = ?
-                    LIMIT 1
-                ");
+            $selected_role_name =
+                trim($role_row['role_name'] ?? '');
 
-                $stmt->bind_param(
-                    "s",
-                    $username
-                );
-
-                $stmt->execute();
-
-                if ($stmt->get_result()->num_rows > 0) {
-
-                    $message =
-                        "Username already exists.";
-
-                    $message_type =
-                        "danger";
-                } else {
+            $role_check->close();
 
 
-                    /* -------------------------------------
-                       DUPLICATE EMAIL
-                    -------------------------------------- */
+            if (!$role_exists) {
 
-                    $stmt = $conn->prepare("
-                        SELECT id
-                        FROM users
-                        WHERE email = ?
-                        LIMIT 1
-                    ");
+                $message =
+                    "Selected role does not exist.";
 
-                    $stmt->bind_param(
-                        "s",
-                        $email
-                    );
-
-                    $stmt->execute();
+                $message_type =
+                    "danger";
+            } else {
 
 
-                    if ($stmt->get_result()->num_rows > 0) {
+                // =================================================
+                // ADD USER
+                // =================================================
 
-                        $message =
-                            "Email already exists.";
+                if ($action === 'add') {
 
-                        $message_type =
-                            "danger";
-                    } elseif ($password === '') {
+
+                    // ---------------------------------------------
+                    // Password required
+                    // ---------------------------------------------
+
+                    if ($password === '') {
 
                         $message =
                             "Password is required for new user.";
@@ -252,643 +295,657 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
 
 
-                        /* ---------------------------------
-                           PASSWORD
-                        ---------------------------------- */
+                        // -----------------------------------------
+                        // Check duplicate username/email
+                        // -----------------------------------------
 
-                        $hashed_password =
-                            password_hash(
-                                $password,
-                                PASSWORD_DEFAULT
+                        $duplicate =
+                            $conn->prepare("
+                                SELECT id
+                                FROM users
+                                WHERE username = ?
+                                OR email = ?
+                                LIMIT 1
+                            ");
+
+                        if (!$duplicate) {
+
+                            $message =
+                                "Unable to check duplicate user.";
+
+                            $message_type =
+                                "danger";
+                        } else {
+
+                            $duplicate->bind_param(
+                                "ss",
+                                $username,
+                                $email
                             );
 
+                            $duplicate->execute();
 
-                        /* ---------------------------------
-                           INSERT
-                        ---------------------------------- */
+                            $duplicate_result =
+                                $duplicate->get_result();
 
-                        $stmt = $conn->prepare("
-                            INSERT INTO users
-                            (
-                                username,
-                                name,
-                                email,
-                                password,
-                                role_id,
-                                status,
-                                created_at
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, NOW())
-                        ");
+                            $exists =
+                                $duplicate_result->num_rows > 0;
+
+                            $duplicate->close();
 
 
-                        /*
-                         * s = username
-                         * s = name
-                         * s = email
-                         * s = password
-                         * i = role_id
-                         * s = status
-                         */
+                            if ($exists) {
 
-                        $stmt->bind_param(
-                            "ssss is",
-                            $username,
-                            $name,
-                            $email,
-                            $hashed_password,
-                            $role_id,
-                            $status
-                        );
+                                $message =
+                                    "Username or email already exists.";
 
-                        // Fix whitespace from type string
-                        // Use correct bind below
-                        $stmt->bind_param(
-                            "ssss is",
-                            $username,
-                            $name,
-                            $email,
-                            $hashed_password,
-                            $role_id,
-                            $status
-                        );
-                    }
-                }
+                                $message_type =
+                                    "danger";
+                            } else {
 
 
-                /*
-                 * Re-run INSERT correctly if password was valid
-                 * This block is intentionally handled below.
-                 */
+                                // ---------------------------------
+                                // Password hash
+                                // ---------------------------------
 
-
-                if (
-                    $username !== '' &&
-                    $name !== '' &&
-                    $email !== '' &&
-                    $role_id > 0 &&
-                    $password !== ''
-                ) {
-
-                    // Check again if no duplicate error
-                    $check_user = $conn->prepare("
-                        SELECT id
-                        FROM users
-                        WHERE username = ?
-                        OR email = ?
-                        LIMIT 1
-                    ");
-
-                    $check_user->bind_param(
-                        "ss",
-                        $username,
-                        $email
-                    );
-
-                    $check_user->execute();
-
-                    $existing =
-                        $check_user->get_result();
-
-                    /*
-                     * Only insert if there is no existing user
-                     */
-                    if ($existing->num_rows === 0) {
-
-                        $hashed_password =
-                            password_hash(
-                                $password,
-                                PASSWORD_DEFAULT
-                            );
-
-                        $stmt = $conn->prepare("
-                            INSERT INTO users
-                            (
-                                username,
-                                name,
-                                email,
-                                password,
-                                role_id,
-                                status,
-                                created_at
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, NOW())
-                        ");
-
-                        $stmt->bind_param(
-                            "ssss is",
-                            $username,
-                            $name,
-                            $email,
-                            $hashed_password,
-                            $role_id,
-                            $status
-                        );
-                    }
-                }
-
-
-                /*
-                 * SIMPLE CLEAN INSERT
-                 * The actual insert is handled below
-                 */
-                if (
-                    $action === 'add' &&
-                    $username !== '' &&
-                    $name !== '' &&
-                    $email !== '' &&
-                    $password !== '' &&
-                    $role_id > 0
-                ) {
-
-                    $duplicate = $conn->prepare("
-                        SELECT id
-                        FROM users
-                        WHERE username = ?
-                        OR email = ?
-                        LIMIT 1
-                    ");
-
-                    $duplicate->bind_param(
-                        "ss",
-                        $username,
-                        $email
-                    );
-
-                    $duplicate->execute();
-
-                    $duplicate_result =
-                        $duplicate->get_result();
-
-
-                    if ($duplicate_result->num_rows === 0) {
-
-                        $hashed_password =
-                            password_hash(
-                                $password,
-                                PASSWORD_DEFAULT
-                            );
-
-                        $stmt = $conn->prepare("
-                            INSERT INTO users
-                            (
-                                username,
-                                name,
-                                email,
-                                password,
-                                role_id,
-                                status,
-                                created_at
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, NOW())
-                        ");
-
-                        $stmt->bind_param(
-                            "ssss is",
-                            $username,
-                            $name,
-                            $email,
-                            $hashed_password,
-                            $role_id,
-                            $status
-                        );
-
-                        /*
-                         * Correct type string:
-                         * ssss is -> ssssis
-                         */
-
-                        $stmt = $conn->prepare("
-                            INSERT INTO users
-                            (
-                                username,
-                                name,
-                                email,
-                                password,
-                                role_id,
-                                status,
-                                created_at
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, NOW())
-                        ");
-
-                        $stmt->bind_param(
-                            "ssssis",
-                            $username,
-                            $name,
-                            $email,
-                            $hashed_password,
-                            $role_id,
-                            $status
-                        );
-
-
-                        if ($stmt->execute()) {
-
-                            $user_id =
-                                $conn->insert_id;
-
-
-                            /* =============================
-                               PROFILE IMAGE
-                            ============================== */
-
-                            if (
-                                isset($_FILES['profile_pic']) &&
-                                $_FILES['profile_pic']['error']
-                                === UPLOAD_ERR_OK
-                            ) {
-
-                                $allowed_ext = [
-                                    'jpg',
-                                    'jpeg',
-                                    'png',
-                                    'gif',
-                                    'webp'
-                                ];
-
-                                $extension =
-                                    strtolower(
-                                        pathinfo(
-                                            $_FILES['profile_pic']['name'],
-                                            PATHINFO_EXTENSION
-                                        )
+                                $hashed_password =
+                                    password_hash(
+                                        $password,
+                                        PASSWORD_DEFAULT
                                     );
 
 
-                                if (
-                                    in_array(
-                                        $extension,
-                                        $allowed_ext
-                                    )
-                                ) {
+                                // ---------------------------------
+                                // INSERT USER
+                                // ---------------------------------
 
-                                    $file_name =
-                                        "user_" .
-                                        $user_id .
-                                        "." .
-                                        $extension;
-
-                                    $target =
-                                        $upload_dir .
-                                        $file_name;
-
-
-                                    if (
-                                        move_uploaded_file(
-                                            $_FILES['profile_pic']['tmp_name'],
-                                            $target
+                                $stmt =
+                                    $conn->prepare("
+                                        INSERT INTO users
+                                        (
+                                            username,
+                                            name,
+                                            email,
+                                            password,
+                                            role,
+                                            role_id,
+                                            status,
+                                            created_at
                                         )
-                                    ) {
+                                        VALUES
+                                        (
+                                            ?,
+                                            ?,
+                                            ?,
+                                            ?,
+                                            ?,
+                                            ?,
+                                            ?,
+                                            NOW()
+                                        )
+                                    ");
 
-                                        $stmt_pic =
-                                            $conn->prepare("
-                                                UPDATE users
-                                                SET profile_pic = ?
-                                                WHERE id = ?
-                                            ");
 
-                                        $stmt_pic->bind_param(
-                                            "si",
-                                            $file_name,
-                                            $user_id
-                                        );
+                                if (!$stmt) {
 
-                                        $stmt_pic->execute();
+                                    $message =
+                                        "Unable to prepare user insert.";
+
+                                    $message_type =
+                                        "danger";
+                                } else {
+
+
+                                    /*
+                                     * username       = s
+                                     * name           = s
+                                     * email          = s
+                                     * password       = s
+                                     * role_id        = i
+                                     * status         = s
+                                     *
+                                     * Correct:
+                                     * ssssis
+                                     */
+
+                                    $stmt->bind_param(
+                                        "sssssis",
+                                        $username,
+                                        $name,
+                                        $email,
+                                        $hashed_password,
+                                        $selected_role_name,
+                                        $role_id,
+                                        $status
+                                    );
+
+
+                                    if ($stmt->execute()) {
+
+                                        $new_user_id =
+                                            $stmt->insert_id;
+
+
+                                        // =================================
+                                        // PROFILE IMAGE
+                                        // =================================
+
+                                        if (
+                                            isset(
+                                                $_FILES['profile_pic']
+                                            ) &&
+                                            $_FILES['profile_pic']['error']
+                                            === UPLOAD_ERR_OK
+                                        ) {
+
+                                            $allowed_ext = [
+                                                'jpg',
+                                                'jpeg',
+                                                'png',
+                                                'gif',
+                                                'webp'
+                                            ];
+
+
+                                            $extension =
+                                                strtolower(
+                                                    pathinfo(
+                                                        $_FILES['profile_pic']['name'],
+                                                        PATHINFO_EXTENSION
+                                                    )
+                                                );
+
+
+                                            if (
+                                                in_array(
+                                                    $extension,
+                                                    $allowed_ext,
+                                                    true
+                                                )
+                                            ) {
+
+                                                $file_name =
+                                                    "user_" .
+                                                    $new_user_id .
+                                                    "." .
+                                                    $extension;
+
+
+                                                $target =
+                                                    $upload_dir .
+                                                    $file_name;
+
+
+                                                if (
+                                                    move_uploaded_file(
+                                                        $_FILES['profile_pic']['tmp_name'],
+                                                        $target
+                                                    )
+                                                ) {
+
+                                                    $stmt_pic =
+                                                        $conn->prepare("
+                                                            UPDATE users
+                                                            SET profile_pic = ?
+                                                            WHERE id = ?
+                                                        ");
+
+                                                    if ($stmt_pic) {
+
+                                                        $stmt_pic->bind_param(
+                                                            "si",
+                                                            $file_name,
+                                                            $new_user_id
+                                                        );
+
+                                                        $stmt_pic->execute();
+
+                                                        $stmt_pic->close();
+                                                    }
+                                                }
+                                            }
+                                        }
+
+
+                                        $message =
+                                            "User added successfully.";
+
+                                        $message_type =
+                                            "success";
+                                    } else {
+
+                                        $message =
+                                            "Error adding user: " .
+                                            $stmt->error;
+
+                                        $message_type =
+                                            "danger";
                                     }
+
+
+                                    $stmt->close();
                                 }
                             }
-
-
-                            $message =
-                                "User added successfully.";
-
-                            $message_type =
-                                "success";
-                        } else {
-
-                            $message =
-                                "Error adding user.";
-
-                            $message_type =
-                                "danger";
-                        }
-                    } else {
-
-                        /*
-                         * Duplicate message already handled
-                         */
-                        if ($message === '') {
-
-                            $message =
-                                "Username or email already exists.";
-
-                            $message_type =
-                                "danger";
                         }
                     }
-                }
 
 
-                /* =================================================
-               UPDATE USER
-            ================================================== */
-            } elseif (
-                $action === 'edit' &&
-                $id > 0
-            ) {
+                    // =================================================
+                    // EDIT USER
+                    // =================================================
 
-
-                /* ---------------------------------------------
-                   DUPLICATE USERNAME
-                ---------------------------------------------- */
-
-                $stmt = $conn->prepare("
-                    SELECT id
-                    FROM users
-                    WHERE username = ?
-                    AND id != ?
-                    LIMIT 1
-                ");
-
-                $stmt->bind_param(
-                    "si",
-                    $username,
-                    $id
-                );
-
-                $stmt->execute();
-
-
-                if (
-                    $stmt->get_result()->num_rows > 0
+                } elseif (
+                    $action === 'edit' &&
+                    $id > 0
                 ) {
 
-                    $message =
-                        "Username already exists.";
 
-                    $message_type =
-                        "danger";
-                } else {
+                    // ---------------------------------------------
+                    // Check duplicate username
+                    // ---------------------------------------------
 
+                    $duplicate_username =
+                        $conn->prepare("
+                            SELECT id
+                            FROM users
+                            WHERE username = ?
+                            AND id != ?
+                            LIMIT 1
+                        ");
 
-                    /* -----------------------------------------
-                       DUPLICATE EMAIL
-                    ------------------------------------------ */
-
-                    $stmt = $conn->prepare("
-                        SELECT id
-                        FROM users
-                        WHERE email = ?
-                        AND id != ?
-                        LIMIT 1
-                    ");
-
-                    $stmt->bind_param(
-                        "si",
-                        $email,
-                        $id
-                    );
-
-                    $stmt->execute();
-
-
-                    if (
-                        $stmt->get_result()->num_rows > 0
-                    ) {
+                    if (!$duplicate_username) {
 
                         $message =
-                            "Email already exists.";
+                            "Unable to check username.";
 
                         $message_type =
                             "danger";
                     } else {
 
+                        $duplicate_username->bind_param(
+                            "si",
+                            $username,
+                            $id
+                        );
 
-                        /* -------------------------------------
-                           UPDATE WITH PASSWORD
-                        -------------------------------------- */
+                        $duplicate_username->execute();
 
-                        if ($password !== '') {
+                        $username_result =
+                            $duplicate_username->get_result();
 
-                            $hashed_password =
-                                password_hash(
-                                    $password,
-                                    PASSWORD_DEFAULT
-                                );
+                        $username_exists =
+                            $username_result->num_rows > 0;
 
-
-                            $stmt = $conn->prepare("
-                                UPDATE users
-                                SET
-                                    username = ?,
-                                    name = ?,
-                                    email = ?,
-                                    password = ?,
-                                    role_id = ?,
-                                    status = ?
-                                WHERE id = ?
-                            ");
+                        $duplicate_username->close();
 
 
-                            $stmt->bind_param(
-                                "ssssis i",
-                                $username,
-                                $name,
-                                $email,
-                                $hashed_password,
-                                $role_id,
-                                $status,
-                                $id
-                            );
+                        if ($username_exists) {
 
+                            $message =
+                                "Username already exists.";
 
-                            // Correct bind
-                            $stmt = $conn->prepare("
-                                UPDATE users
-                                SET
-                                    username = ?,
-                                    name = ?,
-                                    email = ?,
-                                    password = ?,
-                                    role_id = ?,
-                                    status = ?
-                                WHERE id = ?
-                            ");
-
-                            $stmt->bind_param(
-                                "ssssisi",
-                                $username,
-                                $name,
-                                $email,
-                                $hashed_password,
-                                $role_id,
-                                $status,
-                                $id
-                            );
+                            $message_type =
+                                "danger";
                         } else {
 
 
-                            $stmt = $conn->prepare("
-                                UPDATE users
-                                SET
-                                    username = ?,
-                                    name = ?,
-                                    email = ?,
-                                    role_id = ?,
-                                    status = ?
-                                WHERE id = ?
-                            ");
+                            // -------------------------------------
+                            // Check duplicate email
+                            // -------------------------------------
+
+                            $duplicate_email =
+                                $conn->prepare("
+                                    SELECT id
+                                    FROM users
+                                    WHERE email = ?
+                                    AND id != ?
+                                    LIMIT 1
+                                ");
+
+                            if (!$duplicate_email) {
+
+                                $message =
+                                    "Unable to check email.";
+
+                                $message_type =
+                                    "danger";
+                            } else {
+
+                                $duplicate_email->bind_param(
+                                    "si",
+                                    $email,
+                                    $id
+                                );
+
+                                $duplicate_email->execute();
+
+                                $email_result =
+                                    $duplicate_email->get_result();
+
+                                $email_exists =
+                                    $email_result->num_rows > 0;
+
+                                $duplicate_email->close();
 
 
-                            $stmt->bind_param(
-                                "sssisi",
-                                $username,
-                                $name,
-                                $email,
-                                $role_id,
-                                $status,
-                                $id
-                            );
-                        }
+                                if ($email_exists) {
+
+                                    $message =
+                                        "Email already exists.";
+
+                                    $message_type =
+                                        "danger";
+                                } else {
 
 
-                        if ($stmt->execute()) {
+                                    // =================================
+                                    // UPDATE WITH PASSWORD
+                                    // =================================
 
+                                    if ($password !== '') {
 
-                            /* ---------------------------------
-                               NEW PROFILE IMAGE
-                            ---------------------------------- */
-
-                            if (
-                                isset($_FILES['profile_pic']) &&
-                                $_FILES['profile_pic']['error']
-                                === UPLOAD_ERR_OK
-                            ) {
-
-                                $allowed_ext = [
-                                    'jpg',
-                                    'jpeg',
-                                    'png',
-                                    'gif',
-                                    'webp'
-                                ];
-
-
-                                $extension =
-                                    strtolower(
-                                        pathinfo(
-                                            $_FILES['profile_pic']['name'],
-                                            PATHINFO_EXTENSION
-                                        )
-                                    );
-
-
-                                if (
-                                    in_array(
-                                        $extension,
-                                        $allowed_ext
-                                    )
-                                ) {
-
-
-                                    /* Old image */
-
-                                    $stmt_old =
-                                        $conn->prepare("
-                                            SELECT profile_pic
-                                            FROM users
-                                            WHERE id = ?
-                                        ");
-
-                                    $stmt_old->bind_param(
-                                        "i",
-                                        $id
-                                    );
-
-                                    $stmt_old->execute();
-
-
-                                    $old_user =
-                                        $stmt_old
-                                        ->get_result()
-                                        ->fetch_assoc();
-
-
-                                    if (
-                                        $old_user &&
-                                        !empty($old_user['profile_pic'])
-                                    ) {
-
-                                        $old_file =
-                                            $upload_dir .
-                                            $old_user['profile_pic'];
-
-                                        if (
-                                            file_exists(
-                                                $old_file
-                                            )
-                                        ) {
-
-                                            unlink(
-                                                $old_file
+                                        $hashed_password =
+                                            password_hash(
+                                                $password,
+                                                PASSWORD_DEFAULT
                                             );
+
+
+                                        $stmt =
+                                            $conn->prepare("
+                                                UPDATE users
+                                                SET
+                                                    username = ?,
+                                                    name = ?,
+                                                    email = ?,
+                                                    password = ?,
+                                                    role = ?,
+                                                    role_id = ?,
+                                                    status = ?
+                                                WHERE id = ?
+                                            ");
+
+
+                                        if (!$stmt) {
+
+                                            $message =
+                                                "Unable to prepare user update.";
+
+                                            $message_type =
+                                                "danger";
+                                        } else {
+
+
+                                            /*
+                                             * username   = s
+                                             * name       = s
+                                             * email      = s
+                                             * password   = s
+                                             * role_id    = i
+                                             * status     = s
+                                             * id         = i
+                                             *
+                                             * Correct:
+                                             * ssssisi
+                                             */
+
+                                            $stmt->bind_param(
+                                                "sssssisi",
+                                                $username,
+                                                $name,
+                                                $email,
+                                                $hashed_password,
+                                                $selected_role_name,
+                                                $role_id,
+                                                $status,
+                                                $id
+                                            );
+
+
+                                            $update_success =
+                                                $stmt->execute();
+
+                                            $stmt->close();
+                                        }
+
+
+                                        // =================================
+                                        // UPDATE WITHOUT PASSWORD
+                                        // =================================
+
+                                    } else {
+
+                                        $stmt =
+                                            $conn->prepare("
+                                                UPDATE users
+                                                SET
+                                                    username = ?,
+                                                    name = ?,
+                                                    email = ?,
+                                                    role = ?,
+                                                    role_id = ?,
+                                                    status = ?
+                                                WHERE id = ?
+                                            ");
+
+
+                                        if (!$stmt) {
+
+                                            $message =
+                                                "Unable to prepare user update.";
+
+                                            $message_type =
+                                                "danger";
+                                        } else {
+
+
+                                            /*
+                                             * username = s
+                                             * name     = s
+                                             * email    = s
+                                             * role_id  = i
+                                             * status   = s
+                                             * id       = i
+                                             *
+                                             * Correct:
+                                             * sssisi
+                                             */
+
+                                            $stmt->bind_param(
+                                                "ssssisi",
+                                                $username,
+                                                $name,
+                                                $email,
+                                                $selected_role_name,
+                                                $role_id,
+                                                $status,
+                                                $id
+                                            );
+
+
+                                            $update_success =
+                                                $stmt->execute();
+
+                                            $stmt->close();
                                         }
                                     }
 
 
-                                    $file_name =
-                                        "user_" .
-                                        $id .
-                                        "." .
-                                        $extension;
-
-
-                                    $target =
-                                        $upload_dir .
-                                        $file_name;
-
+                                    // =================================
+                                    // AFTER UPDATE
+                                    // =================================
 
                                     if (
-                                        move_uploaded_file(
-                                            $_FILES['profile_pic']['tmp_name'],
-                                            $target
-                                        )
+                                        isset($update_success) &&
+                                        $update_success
                                     ) {
 
-                                        $stmt_pic =
-                                            $conn->prepare("
-                                                UPDATE users
-                                                SET profile_pic = ?
-                                                WHERE id = ?
-                                            ");
 
-                                        $stmt_pic->bind_param(
-                                            "si",
-                                            $file_name,
-                                            $id
-                                        );
+                                        // =================================
+                                        // NEW PROFILE IMAGE
+                                        // =================================
 
-                                        $stmt_pic->execute();
+                                        if (
+                                            isset(
+                                                $_FILES['profile_pic']
+                                            ) &&
+                                            $_FILES['profile_pic']['error']
+                                            === UPLOAD_ERR_OK
+                                        ) {
+
+                                            $allowed_ext = [
+                                                'jpg',
+                                                'jpeg',
+                                                'png',
+                                                'gif',
+                                                'webp'
+                                            ];
+
+
+                                            $extension =
+                                                strtolower(
+                                                    pathinfo(
+                                                        $_FILES['profile_pic']['name'],
+                                                        PATHINFO_EXTENSION
+                                                    )
+                                                );
+
+
+                                            if (
+                                                in_array(
+                                                    $extension,
+                                                    $allowed_ext,
+                                                    true
+                                                )
+                                            ) {
+
+
+                                                // -------------------------
+                                                // Get old image
+                                                // -------------------------
+
+                                                $stmt_old =
+                                                    $conn->prepare("
+                                                        SELECT profile_pic
+                                                        FROM users
+                                                        WHERE id = ?
+                                                        LIMIT 1
+                                                    ");
+
+
+                                                if ($stmt_old) {
+
+                                                    $stmt_old->bind_param(
+                                                        "i",
+                                                        $id
+                                                    );
+
+                                                    $stmt_old->execute();
+
+                                                    $old_user =
+                                                        $stmt_old
+                                                        ->get_result()
+                                                        ->fetch_assoc();
+
+                                                    $stmt_old->close();
+
+
+                                                    if (
+                                                        $old_user &&
+                                                        !empty($old_user['profile_pic'])
+                                                    ) {
+
+                                                        $old_file =
+                                                            $upload_dir .
+                                                            $old_user['profile_pic'];
+
+
+                                                        if (
+                                                            file_exists(
+                                                                $old_file
+                                                            )
+                                                        ) {
+
+                                                            unlink(
+                                                                $old_file
+                                                            );
+                                                        }
+                                                    }
+                                                }
+
+
+                                                // -------------------------
+                                                // Save new image
+                                                // -------------------------
+
+                                                $file_name =
+                                                    "user_" .
+                                                    $id .
+                                                    "." .
+                                                    $extension;
+
+
+                                                $target =
+                                                    $upload_dir .
+                                                    $file_name;
+
+
+                                                if (
+                                                    move_uploaded_file(
+                                                        $_FILES['profile_pic']['tmp_name'],
+                                                        $target
+                                                    )
+                                                ) {
+
+                                                    $stmt_pic =
+                                                        $conn->prepare("
+                                                            UPDATE users
+                                                            SET profile_pic = ?
+                                                            WHERE id = ?
+                                                        ");
+
+
+                                                    if ($stmt_pic) {
+
+                                                        $stmt_pic->bind_param(
+                                                            "si",
+                                                            $file_name,
+                                                            $id
+                                                        );
+
+                                                        $stmt_pic->execute();
+
+                                                        $stmt_pic->close();
+                                                    }
+                                                }
+                                            }
+                                        }
+
+
+                                        $message =
+                                            "User updated successfully.";
+
+                                        $message_type =
+                                            "success";
+                                    } else {
+
+                                        $message =
+                                            "Error updating user.";
+
+                                        $message_type =
+                                            "danger";
                                     }
                                 }
                             }
-
-
-                            $message =
-                                "User updated successfully.";
-
-                            $message_type =
-                                "success";
-                        } else {
-
-                            $message =
-                                "Error updating user.";
-
-                            $message_type =
-                                "danger";
                         }
                     }
+                } else {
+
+                    $message =
+                        "Invalid action.";
+
+                    $message_type =
+                        "danger";
                 }
             }
         }
@@ -896,9 +953,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
-/* =========================================================
-   SEARCH USERS
-========================================================= */
+// =========================================================
+// SEARCH USERS
+// =========================================================
 
 $search =
     trim($_GET['search'] ?? '');
@@ -910,44 +967,49 @@ if ($search !== '') {
         "%" . $search . "%";
 
 
-    $stmt = $conn->prepare("
-        SELECT
-            users.id,
-            users.username,
-            users.name,
-            users.email,
-            users.profile_pic,
-            users.role_id,
-            users.status,
-            roles.role_name,
-            users.created_at
-        FROM users
-        LEFT JOIN roles
-            ON users.role_id = roles.id
-        WHERE
-            users.username LIKE ?
-            OR users.name LIKE ?
-            OR users.email LIKE ?
-            OR roles.role_name LIKE ?
-        ORDER BY users.id DESC
-    ");
+    $stmt =
+        $conn->prepare("
+            SELECT
+                users.id,
+                users.username,
+                users.name,
+                users.email,
+                users.profile_pic,
+                users.role_id,
+                users.status,
+                roles.role_name,
+                users.created_at
+            FROM users
+            LEFT JOIN roles
+                ON users.role_id = roles.id
+            WHERE
+                users.username LIKE ?
+                OR users.name LIKE ?
+                OR users.email LIKE ?
+                OR roles.role_name LIKE ?
+            ORDER BY users.id DESC
+        ");
 
 
-    $stmt->bind_param(
-        "ssss",
-        $search_like,
-        $search_like,
-        $search_like,
-        $search_like
-    );
+    if ($stmt) {
 
+        $stmt->bind_param(
+            "ssss",
+            $search_like,
+            $search_like,
+            $search_like,
+            $search_like
+        );
 
-    $stmt->execute();
+        $stmt->execute();
 
-    $users =
-        $stmt->get_result();
+        $users =
+            $stmt->get_result();
+    } else {
+
+        $users = false;
+    }
 } else {
-
 
     $users =
         $conn->query("
@@ -969,9 +1031,9 @@ if ($search !== '') {
 }
 
 
-/* =========================================================
-   USER COUNT
-========================================================= */
+// =========================================================
+// USER COUNT
+// =========================================================
 
 $count_result =
     $conn->query("
@@ -979,13 +1041,21 @@ $count_result =
         FROM users
     ");
 
-$total_users =
-    $count_result->fetch_assoc()['total'];
+$total_users = 0;
+
+if ($count_result) {
+
+    $count_row =
+        $count_result->fetch_assoc();
+
+    $total_users =
+        (int)($count_row['total'] ?? 0);
+}
 
 
-/* =========================================================
-   FETCH ROLES
-========================================================= */
+// =========================================================
+// FETCH ROLES
+// =========================================================
 
 $roles_result =
     $conn->query("
@@ -996,6 +1066,9 @@ $roles_result =
         WHERE status = 1
         ORDER BY role_name ASC
     ");
+
+
+include "./include/header.php";
 
 ?>
 
@@ -1061,7 +1134,8 @@ $roles_result =
         background:
             rgba(255, 255, 255, 0.85);
 
-        border-radius: 1.25rem;
+        border-radius:
+            1.25rem;
 
         border:
             1px solid rgba(239, 125, 0, 0.15);
@@ -1074,7 +1148,6 @@ $roles_result =
 
         box-shadow:
             0 4px 20px -2px rgba(239, 125, 0, 0.05);
-
     }
 
 
@@ -1183,26 +1256,27 @@ $roles_result =
 
     <div
         class="mb-6
-               p-4
-               rounded-xl
-               border
-               flex
-               items-center
-               gap-3
-               backdrop-blur-md
-               font-medium
-               <?= $message_type === 'success'
-                    ? 'bg-green-50/80 border-green-200 text-green-700'
-                    : 'bg-red-50/80 border-red-200 text-red-700'
-                ?>">
+           p-4
+           rounded-xl
+           border
+           flex
+           items-center
+           gap-3
+           backdrop-blur-md
+           font-medium
+           <?= $message_type === 'success'
+                ? 'bg-green-50/80 border-green-200 text-green-700'
+                : 'bg-red-50/80 border-red-200 text-red-700'
+            ?>">
 
         <i
             class="bx
-                   <?= $message_type === 'success'
-                        ? 'bx-check-circle'
-                        : 'bx-error-circle'
-                    ?>
-                   text-xl"></i>
+               <?= $message_type === 'success'
+                    ? 'bx-check-circle'
+                    : 'bx-error-circle'
+                ?>
+               text-xl">
+        </i>
 
 
         <span class="text-sm">
@@ -1228,6 +1302,7 @@ $roles_result =
            gap-6
            mb-6">
 
+
     <div
         class="glass-panel
                p-6
@@ -1247,7 +1322,8 @@ $roles_result =
             <i
                 class="bx bx-group
                        text-6xl
-                       text-themeOrange"></i>
+                       text-themeOrange">
+            </i>
 
         </div>
 
@@ -1272,7 +1348,7 @@ $roles_result =
                        mt-2
                        text-themeNavy">
 
-                <?= (int)$total_users ?>
+                <?= $total_users ?>
 
             </h2>
 
@@ -1299,6 +1375,7 @@ $roles_result =
                gap-4
                mb-6">
 
+
         <h2
             class="text-lg
                    font-bold
@@ -1316,6 +1393,7 @@ $roles_result =
                    sm:max-w-md
                    gap-2">
 
+
             <div class="relative w-full">
 
                 <i
@@ -1324,7 +1402,8 @@ $roles_result =
                            left-3
                            top-1/2
                            -translate-y-1/2
-                           text-slate-400"></i>
+                           text-slate-400">
+                </i>
 
 
                 <input
@@ -1374,23 +1453,24 @@ $roles_result =
                 <a
                     href="users.php"
                     class="px-4
-                           py-2.5
-                           bg-slate-100
-                           hover:bg-slate-200
-                           text-slate-700
-                           rounded-xl
-                           transition-colors
-                           text-sm
-                           font-medium
-                           flex
-                           items-center
-                           justify-center">
+                       py-2.5
+                       bg-slate-100
+                       hover:bg-slate-200
+                       text-slate-700
+                       rounded-xl
+                       transition-colors
+                       text-sm
+                       font-medium
+                       flex
+                       items-center
+                       justify-center">
 
                     Reset
 
                 </a>
 
             <?php endif; ?>
+
 
         </form>
 
@@ -1406,11 +1486,13 @@ $roles_result =
                custom-scrollbar
                pb-2">
 
+
         <table
             class="w-full
                    text-sm
                    text-left
                    whitespace-nowrap">
+
 
             <thead>
 
@@ -1420,33 +1502,41 @@ $roles_result =
                            text-slate-500
                            bg-themeOrangeLight/50">
 
+
                     <th class="p-4 font-semibold">
                         #
                     </th>
+
 
                     <th class="p-4 font-semibold">
                         User Details
                     </th>
 
+
                     <th class="p-4 font-semibold">
                         Username
                     </th>
+
 
                     <th class="p-4 font-semibold">
                         Role
                     </th>
 
+
                     <th class="p-4 font-semibold">
                         Status
                     </th>
+
 
                     <th class="p-4 font-semibold">
                         Created
                     </th>
 
+
                     <th class="p-4 font-semibold text-center">
                         Action
                     </th>
+
 
                 </tr>
 
@@ -1456,31 +1546,37 @@ $roles_result =
             <tbody>
 
 
-                <?php if ($users && $users->num_rows > 0): ?>
+                <?php if (
+                    $users &&
+                    $users->num_rows > 0
+                ): ?>
 
 
                     <?php
 
                     $sr = 1;
 
-                    while ($user = $users->fetch_assoc()):
+                    while (
+                        $user =
+                        $users->fetch_assoc()
+                    ):
 
                     ?>
 
 
                         <tr
                             class="border-b
-                                   border-slate-100
-                                   hover:bg-themeOrangeLight/30
-                                   transition-colors">
+                           border-slate-100
+                           hover:bg-themeOrangeLight/30
+                           transition-colors">
 
 
-                            <!-- # -->
+                            <!-- SERIAL -->
 
                             <td
                                 class="p-4
-                                       text-slate-400
-                                       font-medium">
+                               text-slate-400
+                               font-medium">
 
                                 <?= $sr++ ?>
 
@@ -1493,8 +1589,9 @@ $roles_result =
 
                                 <div
                                     class="flex
-                                           items-center
-                                           gap-3">
+                                   items-center
+                                   gap-3">
+
 
                                     <?php
 
@@ -1510,14 +1607,14 @@ $roles_result =
                                     <img
                                         src="<?= htmlspecialchars($profile) ?>"
                                         class="w-10
-                                               h-10
-                                               rounded-full
-                                               object-cover
-                                               border-2
-                                               border-white
-                                               shadow-sm
-                                               ring-1
-                                               ring-slate-100"
+                                       h-10
+                                       rounded-full
+                                       object-cover
+                                       border-2
+                                       border-white
+                                       shadow-sm
+                                       ring-1
+                                       ring-slate-100"
                                         onerror="this.onerror=null;this.src='admin/man.png';">
 
 
@@ -1525,7 +1622,7 @@ $roles_result =
 
                                         <div
                                             class="font-bold
-                                                   text-themeNavy">
+                                           text-themeNavy">
 
                                             <?= htmlspecialchars(
                                                 $user['name']
@@ -1536,8 +1633,8 @@ $roles_result =
 
                                         <div
                                             class="text-xs
-                                                   text-slate-500
-                                                   font-medium">
+                                           text-slate-500
+                                           font-medium">
 
                                             <?= htmlspecialchars(
                                                 $user['email']
@@ -1556,8 +1653,8 @@ $roles_result =
 
                             <td
                                 class="p-4
-                                       font-semibold
-                                       text-slate-600">
+                               font-semibold
+                               text-slate-600">
 
                                 @<?= htmlspecialchars(
                                         $user['username']
@@ -1572,16 +1669,16 @@ $roles_result =
 
                                 <span
                                     class="px-3
-                                           py-1
-                                           rounded-full
-                                           text-[11px]
-                                           font-bold
-                                           tracking-wider
-                                           uppercase
-                                           bg-orange-100
-                                           text-themeOrange
-                                           border
-                                           border-orange-200">
+                                   py-1
+                                   rounded-full
+                                   text-[11px]
+                                   font-bold
+                                   tracking-wider
+                                   uppercase
+                                   bg-orange-100
+                                   text-themeOrange
+                                   border
+                                   border-orange-200">
 
                                     <?= htmlspecialchars(
                                         $user['role_name']
@@ -1597,67 +1694,81 @@ $roles_result =
 
                             <td class="p-4">
 
+
                                 <?php if (
                                     $user['status'] === 'active'
                                 ): ?>
 
+
                                     <span
                                         class="px-3
-                                               py-1.5
-                                               rounded-full
-                                               text-[11px]
-                                               font-bold
-                                               tracking-wide
-                                               uppercase
-                                               bg-emerald-50
-                                               text-emerald-600
-                                               border
-                                               border-emerald-100
-                                               flex
-                                               items-center
-                                               w-fit
-                                               gap-1.5">
+                                   py-1.5
+                                   rounded-full
+                                   text-[11px]
+                                   font-bold
+                                   tracking-wide
+                                   uppercase
+                                   bg-emerald-50
+                                   text-emerald-600
+                                   border
+                                   border-emerald-100
+                                   flex
+                                   items-center
+                                   w-fit
+                                   gap-1.5">
+
 
                                         <div
                                             class="w-1.5
-                                                   h-1.5
-                                                   rounded-full
-                                                   bg-emerald-500"></div>
+                                       h-1.5
+                                       rounded-full
+                                       bg-emerald-500">
+                                        </div>
+
 
                                         Active
 
+
                                     </span>
+
 
                                 <?php else: ?>
 
+
                                     <span
                                         class="px-3
-                                               py-1.5
-                                               rounded-full
-                                               text-[11px]
-                                               font-bold
-                                               tracking-wide
-                                               uppercase
-                                               bg-rose-50
-                                               text-rose-600
-                                               border
-                                               border-rose-100
-                                               flex
-                                               items-center
-                                               w-fit
-                                               gap-1.5">
+                                   py-1.5
+                                   rounded-full
+                                   text-[11px]
+                                   font-bold
+                                   tracking-wide
+                                   uppercase
+                                   bg-rose-50
+                                   text-rose-600
+                                   border
+                                   border-rose-100
+                                   flex
+                                   items-center
+                                   w-fit
+                                   gap-1.5">
+
 
                                         <div
                                             class="w-1.5
-                                                   h-1.5
-                                                   rounded-full
-                                                   bg-rose-500"></div>
+                                       h-1.5
+                                       rounded-full
+                                       bg-rose-500">
+                                        </div>
+
 
                                         Inactive
 
+
                                     </span>
 
+
                                 <?php endif; ?>
+
 
                             </td>
 
@@ -1666,8 +1777,8 @@ $roles_result =
 
                             <td
                                 class="p-4
-                                       text-slate-500
-                                       font-medium">
+                               text-slate-500
+                               font-medium">
 
                                 <?= !empty($user['created_at'])
                                     ? date(
@@ -1688,8 +1799,8 @@ $roles_result =
 
                                 <div
                                     class="flex
-                                           justify-center
-                                           gap-2">
+                                   justify-center
+                                   gap-2">
 
 
                                     <!-- EDIT -->
@@ -1704,20 +1815,24 @@ $roles_result =
                                                                     JSON_HEX_AMP
                                                             ) ?>)'
                                         class="w-8
-                                               h-8
-                                               rounded-lg
-                                               bg-orange-50
-                                               text-themeOrange
-                                               hover:bg-themeOrange
-                                               hover:text-white
-                                               flex
-                                               items-center
-                                               justify-center
-                                               transition-colors
-                                               shadow-sm"
+                                       h-8
+                                       rounded-lg
+                                       bg-orange-50
+                                       text-themeOrange
+                                       hover:bg-themeOrange
+                                       hover:text-white
+                                       flex
+                                       items-center
+                                       justify-center
+                                       transition-colors
+                                       shadow-sm"
                                         title="Edit">
 
-                                        <i class="bx bx-edit text-lg"></i>
+
+                                        <i
+                                            class="bx bx-edit text-lg">
+                                        </i>
+
 
                                     </button>
 
@@ -1725,31 +1840,37 @@ $roles_result =
                                     <!-- DELETE -->
 
                                     <?php if (
-                                        $user['id']
-                                        != $_SESSION['user_id']
+                                        (int)$user['id']
+                                        !==
+                                        (int)$_SESSION['user_id']
                                     ): ?>
+
 
                                         <a
                                             href="users.php?delete=<?= (int)$user['id'] ?>"
                                             onclick="return confirm('Are you sure you want to delete this user?')"
                                             class="w-8
-                                                   h-8
-                                                   rounded-lg
-                                                   bg-rose-50
-                                                   text-rose-600
-                                                   hover:bg-rose-500
-                                                   hover:text-white
-                                                   flex
-                                                   items-center
-                                                   justify-center
-                                                   transition-colors
-                                                   shadow-sm"
+                                       h-8
+                                       rounded-lg
+                                       bg-rose-50
+                                       text-rose-600
+                                       hover:bg-rose-500
+                                       hover:text-white
+                                       flex
+                                       items-center
+                                       justify-center
+                                       transition-colors
+                                       shadow-sm"
                                             title="Delete">
 
+
                                             <i
-                                                class="bx bx-trash text-lg"></i>
+                                                class="bx bx-trash text-lg">
+                                            </i>
+
 
                                         </a>
+
 
                                     <?php endif; ?>
 
@@ -1774,18 +1895,21 @@ $roles_result =
                             colspan="7"
                             class="text-center py-12">
 
+
                             <div
                                 class="flex
-                                       flex-col
-                                       items-center
-                                       justify-center
-                                       text-slate-400">
+                                   flex-col
+                                   items-center
+                                   justify-center
+                                   text-slate-400">
+
 
                                 <i
                                     class="bx bx-folder-open
-                                           text-5xl
-                                           mb-3
-                                           text-orange-200"></i>
+                                       text-5xl
+                                       mb-3
+                                       text-orange-200">
+                                </i>
 
 
                                 <p class="font-medium">
@@ -1793,6 +1917,7 @@ $roles_result =
                                     No users found matching your criteria.
 
                                 </p>
+
 
                             </div>
 
@@ -1835,7 +1960,8 @@ $roles_result =
                inset-0
                bg-themeNavy/40
                backdrop-blur-sm"
-        onclick="closeModal()"></div>
+        onclick="closeModal()">
+    </div>
 
 
     <!-- MODAL -->
@@ -1867,6 +1993,7 @@ $roles_result =
                    border-b
                    border-orange-50
                    z-10">
+
 
             <h2
                 id="modalTitle"
@@ -1907,11 +2034,13 @@ $roles_result =
             enctype="multipart/form-data"
             class="p-6">
 
+
             <input
                 type="hidden"
                 name="action"
                 id="formAction"
                 value="add">
+
 
             <input
                 type="hidden"
@@ -2100,9 +2229,7 @@ $roles_result =
                 </div>
 
 
-                <!-- =================================================
-                     ROLE
-                ================================================== -->
+                <!-- ROLE -->
 
                 <div>
 
@@ -2139,6 +2266,7 @@ $roles_result =
                                font-medium
                                cursor-pointer">
 
+
                         <option value="">
                             Select Role
                         </option>
@@ -2155,6 +2283,7 @@ $roles_result =
                                 $roles_result->fetch_assoc()
                             ): ?>
 
+
                                 <option
                                     value="<?= (int)$role['id'] ?>">
 
@@ -2164,14 +2293,17 @@ $roles_result =
 
                                 </option>
 
+
                             <?php endwhile; ?>
 
 
                         <?php else: ?>
 
+
                             <option value="">
                                 No roles available
                             </option>
+
 
                         <?php endif; ?>
 
@@ -2217,13 +2349,16 @@ $roles_result =
                                font-medium
                                cursor-pointer">
 
+
                         <option value="active">
                             Active
                         </option>
 
+
                         <option value="inactive">
                             Inactive
                         </option>
+
 
                     </select>
 
@@ -2233,6 +2368,7 @@ $roles_result =
                 <!-- PROFILE -->
 
                 <div class="md:col-span-2">
+
 
                     <label
                         class="block
@@ -2251,7 +2387,9 @@ $roles_result =
                                items-center
                                gap-4">
 
+
                         <div class="flex-1">
+
 
                             <input
                                 type="file"
@@ -2283,6 +2421,7 @@ $roles_result =
                             class="hidden
                                    shrink-0">
 
+
                             <img
                                 id="currentProfileImg"
                                 src=""
@@ -2296,9 +2435,11 @@ $roles_result =
 
                         </div>
 
+
                     </div>
 
                 </div>
+
 
             </div>
 
@@ -2313,6 +2454,7 @@ $roles_result =
                        pt-5
                        border-t
                        border-slate-100">
+
 
                 <button
                     type="button"
@@ -2348,15 +2490,20 @@ $roles_result =
                            items-center
                            gap-2">
 
+
                     <i class="bx bx-save text-lg"></i>
+
 
                     <span>
                         Save User
                     </span>
 
+
                 </button>
 
+
             </div>
+
 
         </form>
 
@@ -2370,9 +2517,9 @@ $roles_result =
 ========================================================= -->
 
 <script>
-    /* =========================================================
-   OPEN ADD MODAL
-========================================================= */
+    // =========================================================
+    // OPEN ADD MODAL
+    // =========================================================
 
     function openAddModal() {
 
@@ -2418,11 +2565,6 @@ $roles_result =
             '';
 
 
-        /*
-         * IMPORTANT:
-         * Add mode me koi role selected nahi hoga
-         */
-
         document.getElementById(
                 'userRole'
             ).value =
@@ -2436,7 +2578,9 @@ $roles_result =
 
 
         document
-            .getElementById('currentProfile')
+            .getElementById(
+                'currentProfile'
+            )
             .classList
             .add('hidden');
 
@@ -2452,9 +2596,9 @@ $roles_result =
     }
 
 
-    /* =========================================================
-       EDIT USER
-    ========================================================= */
+    // =========================================================
+    // EDIT USER
+    // =========================================================
 
     function editUser(user) {
 
@@ -2501,20 +2645,9 @@ $roles_result =
             '';
 
 
-        /*
-         * =====================================================
-         * IMPORTANT FIX
-         * =====================================================
-         *
-         * Database field:
-         *
-         * users.role_id
-         *
-         * Not:
-         *
-         * users.role
-         *
-         */
+        // =============================================
+        // ROLE ID
+        // =============================================
 
         const roleSelect =
             document.getElementById(
@@ -2522,40 +2655,15 @@ $roles_result =
             );
 
 
-        const roleId =
+        roleSelect.value =
             String(
                 user.role_id || ''
             );
 
 
-        /*
-         * First select the role
-         */
-
-        roleSelect.value =
-            roleId;
-
-
-        /*
-         * Debug:
-         * Browser console me check karne ke liye
-         */
-
-        console.log(
-            "User Role ID:",
-            user.role_id
-        );
-
-
-        console.log(
-            "Selected Role:",
-            roleSelect.value
-        );
-
-
-        /*
-         * Status
-         */
+        // =============================================
+        // STATUS
+        // =============================================
 
         document.getElementById(
                 'userStatus'
@@ -2563,9 +2671,9 @@ $roles_result =
             user.status || 'active';
 
 
-        /*
-         * Profile image
-         */
+        // =============================================
+        // PROFILE IMAGE
+        // =============================================
 
         if (
             user.profile_pic &&
@@ -2597,9 +2705,9 @@ $roles_result =
         }
 
 
-        /*
-         * Button
-         */
+        // =============================================
+        // BUTTON
+        // =============================================
 
         document.getElementById(
                 'saveButton'
@@ -2612,9 +2720,9 @@ $roles_result =
     }
 
 
-    /* =========================================================
-       SHOW MODAL
-    ========================================================= */
+    // =========================================================
+    // SHOW MODAL
+    // =========================================================
 
     function showModal() {
 
@@ -2635,9 +2743,9 @@ $roles_result =
     }
 
 
-    /* =========================================================
-       CLOSE MODAL
-    ========================================================= */
+    // =========================================================
+    // CLOSE MODAL
+    // =========================================================
 
     function closeModal() {
 
@@ -2658,9 +2766,9 @@ $roles_result =
     }
 
 
-    /* =========================================================
-       ESC KEY
-    ========================================================= */
+    // =========================================================
+    // ESC KEY
+    // =========================================================
 
     document.addEventListener(
         'keydown',
@@ -2679,4 +2787,8 @@ $roles_result =
 </script>
 
 
-<?php include "./include/footer.php"; ?>
+<?php
+
+include "./include/footer.php";
+
+?>

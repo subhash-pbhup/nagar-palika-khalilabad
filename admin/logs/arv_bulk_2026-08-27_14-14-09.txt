@@ -1,0 +1,5 @@
+[2026-08-27 14:14:09] ARV BULK IMPORT STARTED: ARV_Tax_Template (5).csv
+[2026-08-27 14:14:09] [SKIPPED] Row 2: Property ID UP054501010000101 already exists.
+[2026-08-27 14:14:09] [SKIPPED] Row 3: Property ID UP054501300000102 already exists.
+[2026-08-27 14:14:09] [SKIPPED] Row 4: Property ID UP054501150000103 already exists.
+[2026-08-27 14:14:09] FINISHED | Success: 0 | Skipped: 3 | Errors: 0

@@ -1,335 +1,1589 @@
 <?php
+
 session_start();
 
-// 1. Session Check: Ensure user is logged in
+// echo "<pre>";
+// print_r($_SESSION);
+// die;
+// =========================================================
+// SESSION CHECK
+// =========================================================
+
 if (!isset($_SESSION['user_id'])) {
+
     header("Location: index.php");
     exit;
 }
 
-// Database connection details
-include 'db.php'; // This file should provide the database connection ($conn)
 
-// CRITICAL CHECK: Ensure database connection is successful
+// =========================================================
+// DATABASE
+// =========================================================
+
+require_once "db.php";
+
+
 if (!isset($conn) || $conn->connect_error) {
-    die("Fatal Error: Database Connection failed. Please check your 'db.php' file.");
+
+    die("Fatal Error: Database Connection failed. Please check your db.php file.");
 }
 
-// Configuration for file uploads
-// IMPORTANT: Ensure this directory exists and is writable by the web server
-$upload_dir = 'admin-uploads/';
-$allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+
+// =========================================================
+// CONFIGURATION
+// =========================================================
+
+$upload_dir = __DIR__ . "/admin-uploads/";
+
+$upload_url = "admin-uploads/";
+
+$allowed_extensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp'
+];
+
 $max_file_size = 5 * 1024 * 1024; // 5 MB
 
-// Get current user details from session
-$user_id = $_SESSION['user_id'];
-$user_username = $_SESSION['username'] ?? 'User';
-$user_role = $_SESSION['role'] ?? 'admin';
+
+// Create upload directory if not exists
+
+if (!is_dir($upload_dir)) {
+
+    mkdir(
+        $upload_dir,
+        0755,
+        true
+    );
+}
+
+
+// =========================================================
+// SESSION USER
+// =========================================================
+
+$user_id =
+    (int)$_SESSION['user_id'];
+
+$user_username =
+    $_SESSION['username'] ?? '';
+
+$user_role =
+    $_SESSION['role'] ?? 'user';
+
+$user_role_id =
+    (int)($_SESSION['role_id'] ?? 0);
+
+
 $profile_data = null;
+
 $message = '';
+
 $error = '';
 
-// Determine which table to use based on the logged-in user's role
-// NOTE: Assuming 'surveyors' and 'users' tables exist with the same structure
-$table_name = ($user_role === 'surveyor') ? 'surveyors' : 'users';
 
-// --- Function to fetch profile data (reusable after update) ---
-function fetchProfileData($conn, $table_name, $user_id, &$error)
-{
-    $stmt_fetch = $conn->prepare("SELECT username, email, name, profile_pic, role, status FROM {$table_name} WHERE id = ? LIMIT 1");
-    if ($stmt_fetch) {
-        $stmt_fetch->bind_param("i", $user_id);
-        if (!$stmt_fetch->execute()) {
-            $error = "Database Fetch Error: " . $stmt_fetch->error;
-            return null;
-        }
-        $result = $stmt_fetch->get_result();
-        $data = $result->fetch_assoc();
-        $stmt_fetch->close();
+// =========================================================
+// FETCH PROFILE DATA
+// =========================================================
 
-        // Update session and return data
-        if ($data) {
-            $_SESSION['role'] = $data['role'];
-            $_SESSION['username'] = $data['username'];
-            $_SESSION['name'] = $data['name'];
-        }
-        return $data;
-    } else {
-        $error = "SQL Prepare Error (Fetch): " . $conn->error;
+function fetchProfileData(
+    $conn,
+    $user_id,
+    &$error
+) {
+
+    $sql = "
+        SELECT
+            u.id,
+            u.username,
+            u.name,
+            u.email,
+            u.profile_pic,
+            u.role_id,
+            u.status,
+            u.created_at,
+            r.role_name
+        FROM users u
+        LEFT JOIN roles r
+            ON u.role_id = r.id
+        WHERE u.id = ?
+        LIMIT 1
+    ";
+
+
+    $stmt =
+        $conn->prepare($sql);
+
+
+    if (!$stmt) {
+
+        $error =
+            "SQL Prepare Error: " .
+            $conn->error;
+
         return null;
     }
+
+
+    $stmt->bind_param(
+        "i",
+        $user_id
+    );
+
+
+    if (!$stmt->execute()) {
+
+        $error =
+            "Database Fetch Error: " .
+            $stmt->error;
+
+        $stmt->close();
+
+        return null;
+    }
+
+
+    $result =
+        $stmt->get_result();
+
+
+    $data =
+        $result->fetch_assoc();
+
+
+    $stmt->close();
+
+
+    if ($data) {
+
+        // ---------------------------------------------
+        // Update session
+        // ---------------------------------------------
+
+        $_SESSION['user_id'] =
+            (int)$data['id'];
+
+        $_SESSION['username'] =
+            $data['username'];
+
+        $_SESSION['name'] =
+            $data['name'];
+
+        $_SESSION['role_id'] =
+            (int)$data['role_id'];
+
+        /*
+         * Keep role name in session.
+         *
+         * Example:
+         * admin
+         * chairman
+         * eo
+         * clerk
+         */
+
+        $_SESSION['role'] =
+            $data['role_name'] ?? '';
+    }
+
+
+    return $data;
 }
 
-// --- 2. Fetch Initial Profile Data ---
-$profile_data = fetchProfileData($conn, $table_name, $user_id, $error);
 
-if (!$profile_data) {
-    $error = $error ?: "Profile data could not be fetched from table '{$table_name}'. Please ensure your user ID is valid and tables/columns exist.";
+// =========================================================
+// INITIAL PROFILE
+// =========================================================
+
+$profile_data =
+    fetchProfileData(
+        $conn,
+        $user_id,
+        $error
+    );
+
+
+if (!$profile_data && empty($error)) {
+
+    $error =
+        "Profile data could not be found.";
 }
 
-// --- 3. Handle Form Submission (Update Logic) ---
-if ($_SERVER["REQUEST_METHOD"] == "POST" && $profile_data && !$error) {
-    // Sanitize and get editable input (name)
-    $new_name = trim($_POST['name'] ?? '');
-    $update_fields = [];
-    $update_types = '';
-    $update_params = [];
 
-    // --- Input Validation: Name ---
-    if (empty($new_name)) {
-        $error = "Name is required.";
+// =========================================================
+// UPDATE PROFILE
+// =========================================================
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    $profile_data &&
+    empty($error)
+) {
+
+
+    // =====================================================
+    // NAME
+    // =====================================================
+
+    $new_name =
+        trim(
+            $_POST['name'] ?? ''
+        );
+
+
+    if ($new_name === '') {
+
+        $error =
+            "Name is required.";
+    } elseif (mb_strlen($new_name) < 2) {
+
+        $error =
+            "Name must contain at least 2 characters.";
     } else {
-        // Add name to update fields
-        $update_fields[] = "name = ?";
-        $update_types .= 's';
-        $update_params[] = $new_name;
 
-        // --- File Upload Handling ---
-        $new_profile_pic_filename = $profile_data['profile_pic']; // Default to current filename
 
-        if (isset($_FILES['profile_pic_file']) && $_FILES['profile_pic_file']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['profile_pic_file'];
-            $file_name = $file['name'];
-            $file_tmp = $file['tmp_name'];
-            $file_size = $file['size'];
-            $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        // =================================================
+        // UPDATE FIELDS
+        // =================================================
 
-            // Validate file size and extension
-            if ($file_size > $max_file_size) {
-                $error = "Error: File size must be less than 5MB.";
-            } elseif (!in_array($file_ext, $allowed_extensions)) {
-                $error = "Error: Only JPG, JPEG, PNG, and GIF files are allowed.";
+        $update_fields = [];
+
+        $update_types = '';
+
+        $update_params = [];
+
+
+        // -------------------------------------------------
+        // NAME
+        // -------------------------------------------------
+
+        $update_fields[] =
+            "name = ?";
+
+        $update_types .=
+            "s";
+
+        $update_params[] =
+            $new_name;
+
+
+        // =================================================
+        // PROFILE IMAGE
+        // =================================================
+
+        $new_profile_pic =
+            $profile_data['profile_pic'] ?? '';
+
+
+        if (
+            isset($_FILES['profile_pic_file']) &&
+            $_FILES['profile_pic_file']['error']
+            !== UPLOAD_ERR_NO_FILE
+        ) {
+
+
+            $file =
+                $_FILES['profile_pic_file'];
+
+
+            // ---------------------------------------------
+            // Upload error
+            // ---------------------------------------------
+
+            if (
+                $file['error']
+                !== UPLOAD_ERR_OK
+            ) {
+
+                $error =
+                    "There was an error uploading the profile picture.";
             } else {
-                // Generate unique filename to prevent overwriting and path traversal
-                $unique_filename = uniqid('profile_', true) . '.' . $file_ext;
-                $target_file = $upload_dir . $unique_filename;
 
-                // Attempt to move the uploaded file
-                if (move_uploaded_file($file_tmp, $target_file)) {
-                    // Success: Update filename
-                    $new_profile_pic_filename = $unique_filename;
-                    $update_fields[] = "profile_pic = ?";
-                    $update_types .= 's';
-                    $update_params[] = $new_profile_pic_filename;
 
-                    // OPTIONAL: Delete the old profile picture file if it's not the default
-                    // if (!empty($profile_data['profile_pic']) && file_exists($upload_dir . $profile_data['profile_pic'])) {
-                    //     unlink($upload_dir . $profile_data['profile_pic']);
-                    // }
+                $file_size =
+                    (int)$file['size'];
 
+
+                $original_name =
+                    $file['name'];
+
+
+                $file_tmp =
+                    $file['tmp_name'];
+
+
+                $file_ext =
+                    strtolower(
+                        pathinfo(
+                            $original_name,
+                            PATHINFO_EXTENSION
+                        )
+                    );
+
+
+                // -----------------------------------------
+                // File size
+                // -----------------------------------------
+
+                if (
+                    $file_size <= 0
+                ) {
+
+                    $error =
+                        "Invalid profile picture.";
+                } elseif (
+                    $file_size > $max_file_size
+                ) {
+
+                    $error =
+                        "Profile picture must be less than 5MB.";
+
+                    // -----------------------------------------
+                    // Extension
+                    // -----------------------------------------
+
+                } elseif (
+                    !in_array(
+                        $file_ext,
+                        $allowed_extensions,
+                        true
+                    )
+                ) {
+
+                    $error =
+                        "Only JPG, JPEG, PNG, GIF and WEBP files are allowed.";
                 } else {
-                    $error = "Error: There was an issue uploading your file. Check directory permissions ('$upload_dir').";
+
+
+                    // -------------------------------------
+                    // MIME validation
+                    // -------------------------------------
+
+                    $allowed_mimes = [
+                        'image/jpeg',
+                        'image/png',
+                        'image/gif',
+                        'image/webp'
+                    ];
+
+
+                    $mime_type = '';
+
+
+                    if (
+                        function_exists(
+                            'finfo_open'
+                        )
+                    ) {
+
+                        $finfo =
+                            finfo_open(
+                                FILEINFO_MIME_TYPE
+                            );
+
+
+                        if ($finfo) {
+
+                            $mime_type =
+                                finfo_file(
+                                    $finfo,
+                                    $file_tmp
+                                );
+
+
+                            finfo_close(
+                                $finfo
+                            );
+                        }
+                    }
+
+
+                    if (
+                        $mime_type !== '' &&
+                        !in_array(
+                            $mime_type,
+                            $allowed_mimes,
+                            true
+                        )
+                    ) {
+
+                        $error =
+                            "Invalid image file.";
+                    } else {
+
+
+                        // ---------------------------------
+                        // Generate unique filename
+                        // ---------------------------------
+
+                        $unique_filename =
+                            'profile_' .
+                            $user_id .
+                            '_' .
+                            bin2hex(
+                                random_bytes(8)
+                            ) .
+                            '.' .
+                            $file_ext;
+
+
+                        $target_file =
+                            $upload_dir .
+                            $unique_filename;
+
+
+                        // ---------------------------------
+                        // Move file
+                        // ---------------------------------
+
+                        if (
+                            !move_uploaded_file(
+                                $file_tmp,
+                                $target_file
+                            )
+                        ) {
+
+                            $error =
+                                "Unable to upload profile picture. Please check folder permissions.";
+                        } else {
+
+
+                            $new_profile_pic =
+                                $unique_filename;
+
+
+                            $update_fields[] =
+                                "profile_pic = ?";
+
+
+                            $update_types .=
+                                "s";
+
+
+                            $update_params[] =
+                                $new_profile_pic;
+                        }
+                    }
                 }
             }
         }
 
-        // --- Execute UPDATE Query ---
+
+        // =================================================
+        // EXECUTE UPDATE
+        // =================================================
+
         if (empty($error)) {
-            // Add user_id to the parameters for the WHERE clause
-            $update_types .= 'i';
-            $update_params[] = $user_id;
 
-            // Construct the SQL query
-            $sql_update = "UPDATE {$table_name} SET " . implode(', ', $update_fields) . " WHERE id = ?";
 
-            $stmt_update = $conn->prepare($sql_update);
+            // ---------------------------------------------
+            // WHERE user ID
+            // ---------------------------------------------
 
-            if ($stmt_update) {
-                // Bind parameters dynamically
-                $stmt_update->bind_param($update_types, ...$update_params);
+            $update_types .=
+                "i";
 
-                if ($stmt_update->execute()) {
-                    $message = "Success! Your profile details have been updated.";
 
-                    // Re-fetch data to refresh form and session with the latest data
-                    $profile_data = fetchProfileData($conn, $table_name, $user_id, $error);
-                } else {
-                    $error = "Error updating profile in '{$table_name}' table: " . $stmt_update->error;
-                }
-                $stmt_update->close();
+            $update_params[] =
+                $user_id;
+
+
+            $sql_update =
+                "UPDATE users SET " .
+                implode(
+                    ", ",
+                    $update_fields
+                ) .
+                " WHERE id = ?";
+
+
+            $stmt_update =
+                $conn->prepare(
+                    $sql_update
+                );
+
+
+            if (!$stmt_update) {
+
+                $error =
+                    "SQL Prepare Error: " .
+                    $conn->error;
             } else {
-                $error = "SQL Prepare Error (Update): " . $conn->error;
+
+
+                // -----------------------------------------
+                // Dynamic bind
+                // -----------------------------------------
+
+                $stmt_update->bind_param(
+                    $update_types,
+                    ...$update_params
+                );
+
+
+                if (
+                    $stmt_update->execute()
+                ) {
+
+                    $message =
+                        "Success! Your profile details have been updated.";
+
+
+                    // -------------------------------------
+                    // Delete old profile picture
+                    // -------------------------------------
+
+                    if (
+                        !empty($new_profile_pic) &&
+                        !empty($profile_data['profile_pic']) &&
+                        $profile_data['profile_pic']
+                        !==
+                        $new_profile_pic
+                    ) {
+
+                        $old_file =
+                            $upload_dir .
+                            basename(
+                                $profile_data['profile_pic']
+                            );
+
+
+                        if (
+                            is_file(
+                                $old_file
+                            )
+                        ) {
+
+                            @unlink(
+                                $old_file
+                            );
+                        }
+                    }
+
+
+                    // -------------------------------------
+                    // Refresh profile
+                    // -------------------------------------
+
+                    $profile_data =
+                        fetchProfileData(
+                            $conn,
+                            $user_id,
+                            $error
+                        );
+
+
+                    if (
+                        !$profile_data &&
+                        empty($error)
+                    ) {
+
+                        $error =
+                            "Profile updated but could not refresh profile data.";
+                    }
+                } else {
+
+                    $error =
+                        "Error updating profile: " .
+                        $stmt_update->error;
+
+
+                    // -------------------------------------
+                    // Remove newly uploaded image if
+                    // database update failed
+                    // -------------------------------------
+
+                    if (
+                        !empty($new_profile_pic) &&
+                        $new_profile_pic
+                        !==
+                        ($profile_data['profile_pic'] ?? '')
+                    ) {
+
+                        $new_file =
+                            $upload_dir .
+                            basename(
+                                $new_profile_pic
+                            );
+
+
+                        if (
+                            is_file(
+                                $new_file
+                            )
+                        ) {
+
+                            @unlink(
+                                $new_file
+                            );
+                        }
+                    }
+                }
+
+
+                $stmt_update->close();
             }
         }
     }
 }
 
-// Close connection
-if (isset($conn)) {
-    $conn->close();
-}
 
-// Determine dashboard link for 'Back' button
-$dashboard_link = ($user_role === 'surveyor') ? 'surveyor-dashboard.php' : 'dashboard.php';
+// =========================================================
+// DISPLAY DATA
+// =========================================================
 
-
-// --- Image Path Configuration ---
-$profile_pic_filename = $profile_data['profile_pic'] ?? '';
-// If profile_pic field is empty, use 'placeholder.png', otherwise use 'admin-uploads/' path
-// NOTE: I've removed the redundant 'admin-uploads/' prefix in the image_src construction below
-$image_src = empty($profile_pic_filename) ? 'placeholder.png' : $upload_dir . $profile_pic_filename;
-
-// Fallback text for placeholder
-$avatar_fallback_text = htmlspecialchars(substr($profile_data['name'] ?? 'U', 0, 1));
+$display_role =
+    $profile_data['role_name']
+    ?? $user_role
+    ?? 'User';
 
 
-// --- Status Color Configuration (NEW) ---
-$status_value = htmlspecialchars(ucfirst($profile_data['status'] ?? 'N/A'));
-$status_color_class = '';
+$display_role =
+    trim(
+        $display_role
+    );
 
-if (strtolower($profile_data['status'] ?? '') === 'active') {
-    // Green for Active
-    $status_color_class = 'text-green-700 font-semibold border-green-400 bg-green-50';
-} elseif (strtolower($profile_data['status'] ?? '') === 'inactive') {
-    // Red for Inactive
-    $status_color_class = 'text-red-700 font-semibold border-red-400 bg-red-50';
+
+$display_role =
+    $display_role !== ''
+    ? $display_role
+    : 'User';
+
+
+$display_name =
+    $profile_data['name']
+    ?? 'User';
+
+
+$display_username =
+    $profile_data['username']
+    ?? '';
+
+
+$display_email =
+    $profile_data['email']
+    ?? '';
+
+
+$display_status =
+    strtolower(
+        $profile_data['status']
+            ?? 'inactive'
+    );
+
+
+// =========================================================
+// IMAGE
+// =========================================================
+
+$profile_pic_filename =
+    $profile_data['profile_pic']
+    ?? '';
+
+
+if (
+    !empty($profile_pic_filename)
+) {
+
+    $image_src =
+        $upload_url .
+        rawurlencode(
+            basename(
+                $profile_pic_filename
+            )
+        );
 } else {
-    // Default color for N/A or other statuses
-    $status_color_class = 'text-gray-600';
+
+    $image_src =
+        'placeholder.png';
 }
+
+
+// =========================================================
+// AVATAR FALLBACK
+// =========================================================
+
+$avatar_letter =
+    strtoupper(
+        mb_substr(
+            $display_name,
+            0,
+            1
+        )
+    );
+
+
+$avatar_fallback_text =
+    rawurlencode(
+        $avatar_letter
+    );
+
+
+// =========================================================
+// STATUS COLOR
+// =========================================================
+
+if (
+    $display_status === 'active'
+) {
+
+    $status_label =
+        'Active';
+
+    $status_color_class =
+        'text-green-700 font-semibold border-green-400 bg-green-50';
+} elseif (
+    $display_status === 'inactive'
+) {
+
+    $status_label =
+        'Inactive';
+
+    $status_color_class =
+        'text-red-700 font-semibold border-red-400 bg-red-50';
+} else {
+
+    $status_label =
+        ucfirst(
+            $display_status
+        );
+
+    $status_color_class =
+        'text-gray-600 font-semibold border-gray-300 bg-gray-50';
+}
+
+
+// =========================================================
+// DASHBOARD LINK
+// =========================================================
+
+$role_key =
+    strtolower(
+        trim(
+            $display_role
+        )
+    );
+
+
+if (
+    $role_key === 'surveyor'
+) {
+
+    $dashboard_link =
+        'surveyor-dashboard.php';
+} else {
+
+    $dashboard_link =
+        'dashboard.php';
+}
+
+
+// =========================================================
+// CLOSE DB
+// =========================================================
+
+$conn->close();
+
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Profile | <?php echo htmlspecialchars(ucfirst($user_role)); ?></title>
-    <link href="favicon.png" rel="icon" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+    <title>
+        Update Profile |
+        <?= htmlspecialchars(
+            ucfirst($display_role)
+        ) ?>
+    </title>
+
+
+    <link
+        href="favicon.png"
+        rel="icon">
+
+
+    <script
+        src="https://cdn.tailwindcss.com">
+    </script>
+
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+        );
+
 
         body {
-            font-family: 'Inter', sans-serif;
+
+            font-family:
+                'Inter',
+                sans-serif;
         }
+
 
         .profile-card {
-            box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.1), 0 0 8px rgba(0, 0, 0, 0.05);
+
+            box-shadow:
+                0 15px 30px -10px rgba(0, 0, 0, 0.10),
+                0 0 8px rgba(0, 0, 0, 0.05);
         }
+
 
         .input-field {
-            transition: all 0.2s;
+
+            transition:
+                all 0.2s;
         }
+
 
         .input-field:focus {
-            border-color: #059669;
-            /* emerald-600 */
-            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
+
+            border-color:
+                #059669;
+
+            box-shadow:
+                0 0 0 3px rgba(5, 150, 105, 0.20);
         }
+
 
         .read-only-field {
-            /* Keep background but allow dynamic text/border/bg color classes to override */
-            background-color: #f3f4f6;
-            /* Gray-100 */
-            cursor: not-allowed;
+
+            background-color:
+                #f3f4f6;
+
+            cursor:
+                not-allowed;
         }
     </style>
+
 </head>
 
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-2xl">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Update Profile Details</h1>
-            <p class="text-sm text-gray-500">
-                Manage your personal information for your **<?php echo htmlspecialchars(ucfirst($user_role)); ?>** account.
+
+<body
+    class="bg-gray-100
+           min-h-screen
+           flex
+           items-center
+           justify-center
+           p-4">
+
+
+    <div
+        class="w-full
+           max-w-2xl">
+
+
+        <!-- =====================================================
+         PAGE TITLE
+    ====================================================== -->
+
+        <div
+            class="text-center
+               mb-8">
+
+            <h1
+                class="text-3xl
+                   font-extrabold
+                   text-gray-900
+                   mb-2">
+
+                Update Profile Details
+
+            </h1>
+
+
+            <p
+                class="text-sm
+                   text-gray-500">
+
+                Manage your personal information for your
+                <strong>
+                    <?= htmlspecialchars(
+                        ucfirst($display_role)
+                    ) ?>
+                </strong>
+                account.
+
             </p>
+
         </div>
 
-        <div class="bg-white p-8 rounded-xl profile-card border-t-4 border-emerald-600">
+
+        <!-- =====================================================
+         CARD
+    ====================================================== -->
+
+        <div
+            class="bg-white
+               p-8
+               rounded-xl
+               profile-card
+               border-t-4
+               border-emerald-600">
+
+
+            <!-- =================================================
+             ERROR
+        ================================================== -->
 
             <?php if ($error): ?>
-                <div class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg relative mb-6 text-sm font-medium" role="alert">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    <span class="block sm:inline"><?php echo $error; ?></span>
+
+                <div
+                    class="bg-red-50
+                   border
+                   border-red-300
+                   text-red-700
+                   px-4
+                   py-3
+                   rounded-lg
+                   relative
+                   mb-6
+                   text-sm
+                   font-medium"
+                    role="alert">
+
+                    <i
+                        class="fas fa-exclamation-triangle mr-2"></i>
+
+
+                    <span>
+
+                        <?= htmlspecialchars(
+                            $error
+                        ) ?>
+
+                    </span>
+
                 </div>
+
             <?php endif; ?>
+
+
+            <!-- =================================================
+             SUCCESS
+        ================================================== -->
 
             <?php if ($message): ?>
-                <div class="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-lg relative mb-6 text-sm font-medium" role="alert">
-                    <i class="fas fa-check-circle mr-2"></i>
-                    <span class="block sm:inline"><?php echo $message; ?></span>
+
+                <div
+                    class="bg-green-50
+                   border
+                   border-green-300
+                   text-green-700
+                   px-4
+                   py-3
+                   rounded-lg
+                   relative
+                   mb-6
+                   text-sm
+                   font-medium"
+                    role="alert">
+
+                    <i
+                        class="fas fa-check-circle mr-2"></i>
+
+
+                    <span>
+
+                        <?= htmlspecialchars(
+                            $message
+                        ) ?>
+
+                    </span>
+
                 </div>
+
             <?php endif; ?>
 
-            <form method="POST" action="update-profile.php" enctype="multipart/form-data" class="space-y-5">
 
-                <div class="flex flex-col items-center justify-center mb-8">
-                    <div class="relative w-32 h-32 mb-4">
+            <!-- =================================================
+             FORM
+        ================================================== -->
+
+            <form
+                method="POST"
+                action="update-profile.php"
+                enctype="multipart/form-data"
+                class="space-y-5">
+
+
+                <!-- =============================================
+                 PROFILE IMAGE
+            ============================================== -->
+
+                <div
+                    class="flex
+                       flex-col
+                       items-center
+                       justify-center
+                       mb-8">
+
+
+                    <div
+                        class="relative
+                           w-32
+                           h-32
+                           mb-4">
+
+
                         <img
-                            src="<?php echo htmlspecialchars($image_src); ?>"
+                            src="<?= htmlspecialchars(
+                                        $image_src
+                                    ) ?>"
                             alt="Profile Picture"
-                            class="w-full h-full object-cover rounded-full border-4 border-emerald-500 shadow-lg"
-                            onerror="this.onerror=null;this.src='https://placehold.co/128x128/9CA3AF/FFFFFF?text=<?php echo $avatar_fallback_text; ?>';">
-                        <button type="button" onclick="document.getElementById('profile_pic_edit_section').classList.toggle('hidden');" class="absolute bottom-0 right-0 p-2 bg-emerald-600 rounded-full text-white shadow-xl hover:bg-emerald-700 transition duration-150 transform hover:scale-110" title="Change Profile Picture">
-                            <i class="fas fa-camera text-sm" style="border-radius: 40px;width: 24px;"></i>
+                            class="w-full
+                               h-full
+                               object-cover
+                               rounded-full
+                               border-4
+                               border-emerald-500
+                               shadow-lg"
+                            onerror="this.onerror=null;this.src='https://placehold.co/128x128/9CA3AF/FFFFFF?text=<?= $avatar_fallback_text ?>';">
+
+
+                        <button
+                            type="button"
+                            onclick="document.getElementById('profile_pic_edit_section').classList.toggle('hidden');"
+                            class="absolute
+                               bottom-0
+                               right-0
+                               p-2
+                               bg-emerald-600
+                               rounded-full
+                               text-white
+                               shadow-xl
+                               hover:bg-emerald-700
+                               transition
+                               duration-150
+                               transform
+                               hover:scale-110"
+                            title="Change Profile Picture">
+
+                            <i
+                                class="fas fa-camera text-sm"
+                                style="
+                                border-radius:40px;
+                                width:24px;
+                            "></i>
+
                         </button>
+
                     </div>
-                    <p class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($profile_data['name'] ?? 'N/A'); ?></p>
-                    <p class="text-sm text-gray-500">Role: <?php echo htmlspecialchars(ucfirst($profile_data['role'] ?? 'N/A')); ?></p>
+
+
+                    <p
+                        class="text-xl
+                           font-semibold
+                           text-gray-800">
+
+                        <?= htmlspecialchars(
+                            $display_name
+                        ) ?>
+
+                    </p>
+
+
+                    <p
+                        class="text-sm
+                           text-gray-500">
+
+                        Role:
+                        <?= htmlspecialchars(
+                            ucfirst(
+                                $display_role
+                            )
+                        ) ?>
+
+                    </p>
+
                 </div>
 
-                <div id="profile_pic_edit_section" class="hidden mb-5 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <label for="profile_pic_file" class="block text-sm font-medium text-gray-700 mb-1">
-                        <i class="fas fa-upload mr-2"></i> Upload New Profile Picture (Max 5MB, JPG/PNG/GIF)
+
+                <!-- =============================================
+                 PROFILE IMAGE UPLOAD
+            ============================================== -->
+
+                <div
+                    id="profile_pic_edit_section"
+                    class="hidden
+                       mb-5
+                       p-4
+                       bg-gray-50
+                       rounded-lg
+                       border
+                       border-gray-200">
+
+
+                    <label
+                        for="profile_pic_file"
+                        class="block
+                           text-sm
+                           font-medium
+                           text-gray-700
+                           mb-1">
+
+                        <i
+                            class="fas fa-upload mr-2"></i>
+
+                        Upload New Profile Picture
+
                     </label>
-                    <input type="file" name="profile_pic_file" id="profile_pic_file" class="input-field w-full px-4 py-2 border border-gray-300 rounded-lg bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
-                    <p class="text-xs text-gray-500 mt-1">Leave blank if you don't want to change the image.</p>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-user-circle mr-2"></i> Username
-                        </label>
-                        <input type="text" id="username" value="<?php echo htmlspecialchars($profile_data['username'] ?? 'N/A'); ?>" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg read-only-field" disabled>
-                    </div>
+                    <input
+                        type="file"
+                        name="profile_pic_file"
+                        id="profile_pic_file"
+                        accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                        class="input-field
+                           w-full
+                           px-4
+                           py-2
+                           border
+                           border-gray-300
+                           rounded-lg
+                           bg-white
+                           file:mr-4
+                           file:py-2
+                           file:px-4
+                           file:rounded-full
+                           file:border-0
+                           file:text-sm
+                           file:font-semibold
+                           file:bg-emerald-50
+                           file:text-emerald-700
+                           hover:file:bg-emerald-100">
 
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-envelope mr-2"></i> Email
-                        </label>
-                        <input type="email" id="email" value="<?php echo htmlspecialchars($profile_data['email'] ?? 'N/A'); ?>" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg read-only-field" disabled>
-                    </div>
 
-                    <div class="md:col-span-2">
-                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-user mr-2"></i> Name <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" name="name" id="name" value="<?php echo htmlspecialchars($profile_data['name'] ?? ''); ?>" required class="input-field w-full px-4 py-2 border border-gray-300 rounded-lg" autocomplete="name">
-                    </div>
+                    <p
+                        class="text-xs
+                           text-gray-500
+                           mt-1">
 
-                    <div>
-                        <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-shield-alt mr-2"></i> Role
-                        </label>
-                        <input type="text" id="role" value="<?php echo htmlspecialchars(ucfirst($profile_data['role'] ?? 'N/A')); ?>" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg read-only-field" disabled>
-                    </div>
+                        Maximum 5MB.
+                        JPG, JPEG, PNG, GIF or WEBP.
 
-                    <div>
-                        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
-                            <i class="fas fa-info-circle mr-2"></i> Status
-                        </label>
-                        <input type="text" id="status" value="<?php echo $status_value; ?>" readonly class="w-full px-4 py-2 border rounded-lg read-only-field <?php echo $status_color_class; ?>" disabled>
-                    </div>
+                    </p>
 
                 </div>
 
-                <button type="submit" class="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-emerald-500/50 transition duration-200 mt-6">
-                    <i class="fas fa-save mr-2"></i> SAVE PROFILE CHANGES
+
+                <!-- =============================================
+                 FIELDS
+            ============================================== -->
+
+                <div
+                    class="grid
+                       grid-cols-1
+                       md:grid-cols-2
+                       gap-5">
+
+
+                    <!-- USERNAME -->
+
+                    <div>
+
+                        <label
+                            for="username"
+                            class="block
+                               text-sm
+                               font-medium
+                               text-gray-700
+                               mb-1">
+
+                            <i
+                                class="fas fa-user-circle mr-2"></i>
+
+                            Username
+
+                        </label>
+
+
+                        <input
+                            type="text"
+                            id="username"
+                            value="<?= htmlspecialchars(
+                                        $display_username
+                                    ) ?>"
+                            readonly
+                            disabled
+                            class="w-full
+                               px-4
+                               py-2
+                               border
+                               border-gray-300
+                               rounded-lg
+                               read-only-field">
+
+                    </div>
+
+
+                    <!-- EMAIL -->
+
+                    <div>
+
+                        <label
+                            for="email"
+                            class="block
+                               text-sm
+                               font-medium
+                               text-gray-700
+                               mb-1">
+
+                            <i
+                                class="fas fa-envelope mr-2"></i>
+
+                            Email
+
+                        </label>
+
+
+                        <input
+                            type="email"
+                            id="email"
+                            value="<?= htmlspecialchars(
+                                        $display_email
+                                    ) ?>"
+                            readonly
+                            disabled
+                            class="w-full
+                               px-4
+                               py-2
+                               border
+                               border-gray-300
+                               rounded-lg
+                               read-only-field">
+
+                    </div>
+
+
+                    <!-- NAME -->
+
+                    <div
+                        class="md:col-span-2">
+
+                        <label
+                            for="name"
+                            class="block
+                               text-sm
+                               font-medium
+                               text-gray-700
+                               mb-1">
+
+                            <i
+                                class="fas fa-user mr-2"></i>
+
+                            Name
+
+                            <span
+                                class="text-red-500">
+                                *
+                            </span>
+
+                        </label>
+
+
+                        <input
+                            type="text"
+                            name="name"
+                            id="name"
+                            value="<?= htmlspecialchars(
+                                        $display_name
+                                    ) ?>"
+                            required
+                            minlength="2"
+                            maxlength="100"
+                            class="input-field
+                               w-full
+                               px-4
+                               py-2
+                               border
+                               border-gray-300
+                               rounded-lg"
+                            autocomplete="name">
+
+                    </div>
+
+
+                    <!-- ROLE -->
+
+                    <div>
+
+                        <label
+                            for="role"
+                            class="block
+                               text-sm
+                               font-medium
+                               text-gray-700
+                               mb-1">
+
+                            <i
+                                class="fas fa-shield-alt mr-2"></i>
+
+                            Role
+
+                        </label>
+
+
+                        <input
+                            type="text"
+                            id="role"
+                            value="<?= htmlspecialchars(
+                                        ucfirst(
+                                            $display_role
+                                        )
+                                    ) ?>"
+                            readonly
+                            disabled
+                            class="w-full
+                               px-4
+                               py-2
+                               border
+                               border-gray-300
+                               rounded-lg
+                               read-only-field">
+
+                    </div>
+
+
+                    <!-- STATUS -->
+
+                    <div>
+
+                        <label
+                            for="status"
+                            class="block
+                               text-sm
+                               font-medium
+                               text-gray-700
+                               mb-1">
+
+                            <i
+                                class="fas fa-info-circle mr-2"></i>
+
+                            Status
+
+                        </label>
+
+
+                        <input
+                            type="text"
+                            id="status"
+                            value="<?= htmlspecialchars(
+                                        $status_label
+                                    ) ?>"
+                            readonly
+                            disabled
+                            class="w-full
+                               px-4
+                               py-2
+                               border
+                               rounded-lg
+                               read-only-field
+                               <?= htmlspecialchars(
+                                    $status_color_class
+                                ) ?>">
+
+                    </div>
+
+
+                </div>
+
+
+                <!-- =============================================
+                 SAVE
+            ============================================== -->
+
+                <button
+                    type="submit"
+                    class="w-full
+                       flex
+                       justify-center
+                       items-center
+                       py-2.5
+                       px-4
+                       border
+                       border-transparent
+                       rounded-lg
+                       shadow-md
+                       text-sm
+                       font-bold
+                       text-white
+                       bg-emerald-600
+                       hover:bg-emerald-700
+                       focus:outline-none
+                       focus:ring-4
+                       focus:ring-offset-2
+                       focus:ring-emerald-500/50
+                       transition
+                       duration-200
+                       mt-6">
+
+                    <i
+                        class="fas fa-save mr-2"></i>
+
+                    SAVE PROFILE CHANGES
+
                 </button>
+
+
             </form>
 
-            <div class="mt-6 text-center border-t pt-4">
-                <a href="<?php echo htmlspecialchars($dashboard_link); ?>" class="text-sm text-emerald-600 hover:text-emerald-800 font-medium transition duration-150">
-                    <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
+
+            <!-- ================================================
+             BACK
+        ================================================= -->
+
+            <div
+                class="mt-6
+                   text-center
+                   border-t
+                   pt-4">
+
+                <a
+                    href="<?= htmlspecialchars(
+                                $dashboard_link
+                            ) ?>"
+                    class="text-sm
+                       text-emerald-600
+                       hover:text-emerald-800
+                       font-medium
+                       transition
+                       duration-150">
+
+                    <i
+                        class="fas fa-arrow-left mr-1"></i>
+
+                    Back to Dashboard
+
                 </a>
+
             </div>
+
+
         </div>
+
     </div>
+
+
+    <!-- =========================================================
+     IMAGE PREVIEW
+========================================================= -->
+
+    <script>
+        const profileInput =
+            document.getElementById(
+                'profile_pic_file'
+            );
+
+
+        if (profileInput) {
+
+            profileInput.addEventListener(
+                'change',
+                function() {
+
+                    const file =
+                        this.files[0];
+
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    const maxSize =
+                        5 * 1024 * 1024;
+
+
+                    if (
+                        file.size > maxSize
+                    ) {
+
+                        alert(
+                            'Profile picture must be less than 5MB.'
+                        );
+
+
+                        this.value =
+                            '';
+
+                        return;
+                    }
+
+
+                    const allowedTypes = [
+                        'image/jpeg',
+                        'image/png',
+                        'image/gif',
+                        'image/webp'
+                    ];
+
+
+                    if (
+                        !allowedTypes.includes(
+                            file.type
+                        )
+                    ) {
+
+                        alert(
+                            'Only JPG, JPEG, PNG, GIF and WEBP files are allowed.'
+                        );
+
+
+                        this.value =
+                            '';
+
+                        return;
+                    }
+
+
+                    const reader =
+                        new FileReader();
+
+
+                    reader.onload =
+                        function(e) {
+
+                            const img =
+                                document.querySelector(
+                                    'img[alt="Profile Picture"]'
+                                );
+
+
+                            if (img) {
+
+                                img.src =
+                                    e.target.result;
+                            }
+                        };
+
+
+                    reader.readAsDataURL(
+                        file
+                    );
+
+                }
+            );
+
+        }
+    </script>
+
 </body>
 
 </html>

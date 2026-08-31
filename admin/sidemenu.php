@@ -432,6 +432,23 @@ require_once "./include/permission.php";
 
                         </a>
 
+                        <a href="assessment_history.php"
+                            class="sidebar-link-glass flex justify-between items-center group">
+
+                            <span class="flex items-center">
+
+                                <i class='bx bx-group text-xl mr-3'></i>
+
+                                <span class="font-semibold text-sm">
+                                    Assessment Update History
+                                </span>
+
+                            </span>
+
+                            <div class="w-4"></div>
+
+                        </a>
+
                     <?php endif; ?>
 
 

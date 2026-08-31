@@ -2,19 +2,23 @@
 
 session_start();
 
-include "./include/header.php";
-include "./include/sidebar.php";
-include "./include/db.php";
-
 
 // =========================================================
 // LOGIN CHECK
 // =========================================================
 
 if (!isset($_SESSION['user_id'])) {
+
     header("Location: login.php");
     exit;
 }
+
+
+// =========================================================
+// DATABASE
+// =========================================================
+
+require_once "./db.php";
 
 
 // =========================================================
@@ -23,58 +27,126 @@ if (!isset($_SESSION['user_id'])) {
 
 if (isset($_POST['create_role'])) {
 
-    $role_name  = trim($_POST['role_name'] ?? '');
-    $description = trim($_POST['description'] ?? '');
+    $role_name =
+        trim($_POST['role_name'] ?? '');
+
+    $description =
+        trim($_POST['description'] ?? '');
+
 
     if ($role_name === '') {
 
-        $_SESSION['error'] = "Role name is required.";
+        $_SESSION['error'] =
+            "Role name is required.";
     } else {
 
-        $check = $conn->prepare("
-            SELECT id
-            FROM roles
-            WHERE role_name = ?
-            LIMIT 1
-        ");
 
-        $check->bind_param("s", $role_name);
-        $check->execute();
+        // ---------------------------------------------
+        // Check duplicate role
+        // ---------------------------------------------
 
-        $check_result = $check->get_result();
-
-        if ($check_result->num_rows > 0) {
-
-            $_SESSION['error'] = "This role already exists.";
-        } else {
-
-            $stmt = $conn->prepare("
-                INSERT INTO roles
-                (role_name, description, status)
-                VALUES (?, ?, 1)
+        $check =
+            $conn->prepare("
+                SELECT id
+                FROM roles
+                WHERE role_name = ?
+                LIMIT 1
             ");
 
-            $stmt->bind_param(
-                "ss",
-                $role_name,
-                $description
+
+        if (!$check) {
+
+            $_SESSION['error'] =
+                "Unable to check role.";
+        } else {
+
+            $check->bind_param(
+                "s",
+                $role_name
             );
 
-            if ($stmt->execute()) {
+            $check->execute();
 
-                $_SESSION['success'] = "Role created successfully.";
+            $check_result =
+                $check->get_result();
+
+
+            if (
+                $check_result->num_rows > 0
+            ) {
+
+                $_SESSION['error'] =
+                    "This role already exists.";
             } else {
 
-                $_SESSION['error'] = "Unable to create role.";
+
+                // -------------------------------------
+                // Insert role
+                // -------------------------------------
+
+                $stmt =
+                    $conn->prepare("
+                        INSERT INTO roles
+                        (
+                            role_name,
+                            description,
+                            status
+                        )
+                        VALUES
+                        (
+                            ?,
+                            ?,
+                            1
+                        )
+                    ");
+
+
+                if (!$stmt) {
+
+                    $_SESSION['error'] =
+                        "Unable to prepare role creation.";
+                } else {
+
+
+                    $stmt->bind_param(
+                        "ss",
+                        $role_name,
+                        $description
+                    );
+
+
+                    if ($stmt->execute()) {
+
+                        $_SESSION['success'] =
+                            "Role created successfully.";
+                    } else {
+
+                        $_SESSION['error'] =
+                            "Unable to create role: " .
+                            $stmt->error;
+                    }
+
+
+                    $stmt->close();
+                }
             }
+
+
+            $check->close();
         }
     }
 
-    // header("Location: roles-permissions.php");
 
-    echo "<script>
-    window.location.href = 'roles-permissions.php';
-</script>";
+    // =====================================================
+    // IMPORTANT:
+    // Redirect BEFORE header.php / sidemenu output
+    // =====================================================
+
+    header(
+        "Location: roles-permissions.php"
+    );
+
+    exit;
 }
 
 
@@ -84,104 +156,260 @@ if (isset($_POST['create_role'])) {
 
 if (isset($_POST['save_permissions'])) {
 
-    $role_id = (int)($_POST['role_id'] ?? 0);
+    $role_id =
+        (int)($_POST['role_id'] ?? 0);
 
-    $permissions = $_POST['permissions'] ?? [];
+    $permissions =
+        $_POST['permissions'] ?? [];
 
 
     if ($role_id <= 0) {
 
-        $_SESSION['error'] = "Please select a role.";
-    } else {
+        $_SESSION['error'] =
+            "Please select a role.";
 
-        // Get role name
-        $role_stmt = $conn->prepare("
-            SELECT role_name
+        header(
+            "Location: roles-permissions.php"
+        );
+
+        exit;
+    }
+
+
+    // =====================================================
+    // GET ROLE
+    // =====================================================
+
+    $role_stmt =
+        $conn->prepare("
+            SELECT
+                role_name
             FROM roles
             WHERE id = ?
             LIMIT 1
         ");
 
-        $role_stmt->bind_param("i", $role_id);
-        $role_stmt->execute();
 
-        $role_result = $role_stmt->get_result();
+    if (!$role_stmt) {
 
-        $role_data = $role_result->fetch_assoc();
+        $_SESSION['error'] =
+            "Unable to fetch role.";
 
+        header(
+            "Location: roles-permissions.php?role_id=" .
+                $role_id
+        );
 
-        // ADMIN permissions are automatically full access
-        if (
-            $role_data &&
-            strtoupper($role_data['role_name']) === 'ADMIN'
-        ) {
-
-            $_SESSION['success'] =
-                "ADMIN automatically has full access.";
-        } else {
-
-            $conn->begin_transaction();
-
-            try {
-
-                // Remove old permissions
-                $delete = $conn->prepare("
-                    DELETE FROM role_permissions
-                    WHERE role_id = ?
-                ");
-
-                $delete->bind_param(
-                    "i",
-                    $role_id
-                );
-
-                $delete->execute();
-
-
-                // Insert selected permissions
-                if (!empty($permissions)) {
-
-                    $insert = $conn->prepare("
-                        INSERT INTO role_permissions
-                        (role_id, permission_id)
-                        VALUES (?, ?)
-                    ");
-
-                    foreach ($permissions as $permission_id) {
-
-                        $permission_id = (int)$permission_id;
-
-                        if ($permission_id > 0) {
-
-                            $insert->bind_param(
-                                "ii",
-                                $role_id,
-                                $permission_id
-                            );
-
-                            $insert->execute();
-                        }
-                    }
-                }
-
-
-                $conn->commit();
-
-                $_SESSION['success'] =
-                    "Permissions updated successfully.";
-            } catch (Exception $e) {
-
-                $conn->rollback();
-
-                $_SESSION['error'] =
-                    "Unable to update permissions.";
-            }
-        }
+        exit;
     }
 
 
+    $role_stmt->bind_param(
+        "i",
+        $role_id
+    );
+
+
+    $role_stmt->execute();
+
+
+    $role_result =
+        $role_stmt->get_result();
+
+
+    $role_data =
+        $role_result->fetch_assoc();
+
+
+    $role_stmt->close();
+
+
+    if (!$role_data) {
+
+        $_SESSION['error'] =
+            "Selected role does not exist.";
+
+        header(
+            "Location: roles-permissions.php"
+        );
+
+        exit;
+    }
+
+
+    // =====================================================
+    // ADMIN
+    // =====================================================
+
+    if (
+        strtoupper(
+            trim(
+                $role_data['role_name']
+            )
+        ) === 'ADMIN'
+    ) {
+
+        $_SESSION['success'] =
+            "ADMIN automatically has full access.";
+
+        header(
+            "Location: roles-permissions.php?role_id=" .
+                $role_id
+        );
+
+        exit;
+    }
+
+
+    // =====================================================
+    // SAVE PERMISSIONS
+    // =====================================================
+
+    $conn->begin_transaction();
+
+
+    try {
+
+
+        // ---------------------------------------------
+        // Delete old permissions
+        // ---------------------------------------------
+
+        $delete =
+            $conn->prepare("
+                DELETE FROM role_permissions
+                WHERE role_id = ?
+            ");
+
+
+        if (!$delete) {
+
+            throw new Exception(
+                "Unable to prepare delete query."
+            );
+        }
+
+
+        $delete->bind_param(
+            "i",
+            $role_id
+        );
+
+
+        if (!$delete->execute()) {
+
+            throw new Exception(
+                "Unable to remove old permissions."
+            );
+        }
+
+
+        $delete->close();
+
+
+        // ---------------------------------------------
+        // Insert selected permissions
+        // ---------------------------------------------
+
+        if (
+            !empty($permissions) &&
+            is_array($permissions)
+        ) {
+
+
+            $insert =
+                $conn->prepare("
+                    INSERT INTO role_permissions
+                    (
+                        role_id,
+                        permission_id
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?
+                    )
+                ");
+
+
+            if (!$insert) {
+
+                throw new Exception(
+                    "Unable to prepare permission query."
+                );
+            }
+
+
+            foreach (
+                $permissions as $permission_id
+            ) {
+
+                $permission_id =
+                    (int)$permission_id;
+
+
+                if (
+                    $permission_id <= 0
+                ) {
+                    continue;
+                }
+
+
+                $insert->bind_param(
+                    "ii",
+                    $role_id,
+                    $permission_id
+                );
+
+
+                if (
+                    !$insert->execute()
+                ) {
+
+                    throw new Exception(
+                        "Unable to save permission."
+                    );
+                }
+            }
+
+
+            $insert->close();
+        }
+
+
+        // ---------------------------------------------
+        // Commit
+        // ---------------------------------------------
+
+        $conn->commit();
+
+
+        $_SESSION['success'] =
+            "Permissions updated successfully.";
+    } catch (Throwable $e) {
+
+
+        // ---------------------------------------------
+        // Rollback
+        // ---------------------------------------------
+
+        $conn->rollback();
+
+
+        $_SESSION['error'] =
+            "Unable to update permissions: " .
+            $e->getMessage();
+    }
+
+
+    // =====================================================
+    // IMPORTANT:
+    // Redirect BEFORE any output
+    // =====================================================
+
     header(
-        "Location: roles-permissions.php?role_id=" . $role_id
+        "Location: roles-permissions.php?role_id=" .
+            $role_id
     );
 
     exit;
@@ -189,14 +417,31 @@ if (isset($_POST['save_permissions'])) {
 
 
 // =========================================================
+// NOW ONLY AFTER ALL POST PROCESSING
+// INCLUDE HEADER
+// =========================================================
+
+include "./include/header.php";
+
+
+// =========================================================
 // ALERTS
 // =========================================================
 
-$success = $_SESSION['success'] ?? '';
-$error   = $_SESSION['error'] ?? '';
+$success =
+    $_SESSION['success'] ?? '';
 
-unset($_SESSION['success']);
-unset($_SESSION['error']);
+$error =
+    $_SESSION['error'] ?? '';
+
+
+unset(
+    $_SESSION['success']
+);
+
+unset(
+    $_SESSION['error']
+);
 
 
 // =========================================================
@@ -205,26 +450,34 @@ unset($_SESSION['error']);
 
 $roles = [];
 
-$roles_result = $conn->query("
-    SELECT
-        id,
-        role_name,
-        description,
-        status
-    FROM roles
-    ORDER BY
-        CASE
-            WHEN role_name = 'ADMIN' THEN 1
-            ELSE 2
-        END,
-        role_name ASC
-");
+
+$roles_result =
+    $conn->query("
+        SELECT
+            id,
+            role_name,
+            description,
+            status
+        FROM roles
+        ORDER BY
+            CASE
+                WHEN role_name = 'ADMIN'
+                THEN 1
+                ELSE 2
+            END,
+            role_name ASC
+    ");
+
 
 if ($roles_result) {
 
-    while ($row = $roles_result->fetch_assoc()) {
+    while (
+        $row =
+        $roles_result->fetch_assoc()
+    ) {
 
-        $roles[] = $row;
+        $roles[] =
+            $row;
     }
 }
 
@@ -233,44 +486,67 @@ if ($roles_result) {
 // SELECTED ROLE
 // =========================================================
 
-$selected_role = (int)($_GET['role_id'] ?? 0);
+$selected_role =
+    (int)(
+        $_GET['role_id']
+        ?? 0
+    );
 
 
-if ($selected_role <= 0 && !empty($roles)) {
+if (
+    $selected_role <= 0 &&
+    !empty($roles)
+) {
 
-    $selected_role = (int)$roles[0]['id'];
+    $selected_role =
+        (int)$roles[0]['id'];
 }
 
 
 // =========================================================
-// SELECTED ROLE INFORMATION
+// SELECTED ROLE DATA
 // =========================================================
 
-$selected_role_data = null;
+$selected_role_data =
+    null;
+
 
 if ($selected_role > 0) {
 
-    $stmt = $conn->prepare("
-        SELECT
-            id,
-            role_name,
-            description,
-            status
-        FROM roles
-        WHERE id = ?
-        LIMIT 1
-    ");
+    $stmt =
+        $conn->prepare("
+            SELECT
+                id,
+                role_name,
+                description,
+                status
+            FROM roles
+            WHERE id = ?
+            LIMIT 1
+        ");
 
-    $stmt->bind_param(
-        "i",
-        $selected_role
-    );
 
-    $stmt->execute();
+    if ($stmt) {
 
-    $result = $stmt->get_result();
+        $stmt->bind_param(
+            "i",
+            $selected_role
+        );
 
-    $selected_role_data = $result->fetch_assoc();
+
+        $stmt->execute();
+
+
+        $result =
+            $stmt->get_result();
+
+
+        $selected_role_data =
+            $result->fetch_assoc();
+
+
+        $stmt->close();
+    }
 }
 
 
@@ -280,73 +556,111 @@ if ($selected_role > 0) {
 
 $permissions = [];
 
-$permission_result = $conn->query("
-    SELECT
-        id,
-        module_name,
-        permission_name,
-        permission_key
-    FROM permissions
-    ORDER BY
-        module_name ASC,
-        id ASC
-");
+
+$permission_result =
+    $conn->query("
+        SELECT
+            id,
+            module_name,
+            permission_name,
+            permission_key
+        FROM permissions
+        ORDER BY
+            module_name ASC,
+            id ASC
+    ");
+
 
 if ($permission_result) {
 
-    while ($row = $permission_result->fetch_assoc()) {
+    while (
+        $row =
+        $permission_result->fetch_assoc()
+    ) {
 
-        $permissions[] = $row;
+        $permissions[] =
+            $row;
     }
 }
 
 
 // =========================================================
-// GROUP PERMISSIONS BY MODULE
+// GROUP PERMISSIONS
 // =========================================================
 
-$grouped_permissions = [];
+$grouped_permissions =
+    [];
 
-foreach ($permissions as $permission) {
 
-    $module = $permission['module_name'];
+foreach (
+    $permissions as $permission
+) {
 
-    if (!isset($grouped_permissions[$module])) {
+    $module =
+        $permission['module_name'];
 
-        $grouped_permissions[$module] = [];
+
+    if (
+        !isset(
+            $grouped_permissions[$module]
+        )
+    ) {
+
+        $grouped_permissions[$module] =
+            [];
     }
 
-    $grouped_permissions[$module][] = $permission;
+
+    $grouped_permissions[$module][] =
+        $permission;
 }
 
 
 // =========================================================
-// GET SELECTED ROLE PERMISSIONS
+// SELECTED ROLE PERMISSIONS
 // =========================================================
 
-$role_permissions = [];
+$role_permissions =
+    [];
+
 
 if ($selected_role > 0) {
 
-    $stmt = $conn->prepare("
-        SELECT permission_id
-        FROM role_permissions
-        WHERE role_id = ?
-    ");
+    $stmt =
+        $conn->prepare("
+            SELECT
+                permission_id
+            FROM role_permissions
+            WHERE role_id = ?
+        ");
 
-    $stmt->bind_param(
-        "i",
-        $selected_role
-    );
 
-    $stmt->execute();
+    if ($stmt) {
 
-    $result = $stmt->get_result();
+        $stmt->bind_param(
+            "i",
+            $selected_role
+        );
 
-    while ($row = $result->fetch_assoc()) {
 
-        $role_permissions[] =
-            (int)$row['permission_id'];
+        $stmt->execute();
+
+
+        $result =
+            $stmt->get_result();
+
+
+        while (
+            $row =
+            $result->fetch_assoc()
+        ) {
+
+            $role_permissions[] =
+                (int)$row['permission_id'];
+        }
+
+
+        $stmt->close();
     }
 }
 
@@ -355,30 +669,40 @@ if ($selected_role > 0) {
 // ADMIN CHECK
 // =========================================================
 
-$is_admin_role = false;
+$is_admin_role =
+    false;
+
 
 if (
     $selected_role_data &&
-    strtoupper($selected_role_data['role_name']) === 'ADMIN'
+    strtoupper(
+        trim(
+            $selected_role_data['role_name']
+        )
+    ) === 'ADMIN'
 ) {
 
-    $is_admin_role = true;
+    $is_admin_role =
+        true;
 }
 
 ?>
 
-<style>
-    /* =====================================================
-       KHALILABAD THEME
-    ===================================================== */
+<!-- =========================================================
+     PAGE CSS
+========================================================= -->
 
+<style>
     :root {
 
         --orange: #f47c00;
+
         --orange-dark: #e66f00;
+
         --orange-light: #fff3e6;
 
         --navy: #102452;
+
         --navy-dark: #0b193c;
 
         --cream: #fbf8f4;
@@ -388,18 +712,15 @@ if (
         --muted: #71809a;
 
         --green: #10a968;
-
     }
 
 
     body {
-        background: var(--cream);
+
+        background:
+            var(--cream);
     }
 
-
-    /* =====================================================
-       PAGE
-    ===================================================== */
 
     .roles-page {
 
@@ -407,19 +728,15 @@ if (
 
         background:
             radial-gradient(circle at top right,
-                rgba(244, 124, 0, 0.045),
+                rgba(244, 124, 0, .045),
                 transparent 30%),
             #fbf8f4;
     }
 
 
-    /* =====================================================
-       HEADER
-    ===================================================== */
-
     .roles-header {
 
-        background: #ffffff;
+        background: #fff;
 
         border: 1px solid var(--border);
 
@@ -428,7 +745,7 @@ if (
         padding: 25px;
 
         box-shadow:
-            0 8px 25px rgba(16, 36, 82, 0.035);
+            0 8px 25px rgba(16, 36, 82, .035);
     }
 
 
@@ -452,10 +769,6 @@ if (
     }
 
 
-    /* =====================================================
-       ADD ROLE BUTTON
-    ===================================================== */
-
     .add-role-btn {
 
         display: inline-flex;
@@ -466,7 +779,7 @@ if (
 
         background: var(--orange);
 
-        color: #ffffff;
+        color: #fff;
 
         border: none;
 
@@ -481,61 +794,53 @@ if (
         cursor: pointer;
 
         box-shadow:
-            0 7px 16px rgba(244, 124, 0, 0.18);
+            0 7px 16px rgba(244, 124, 0, .18);
 
-        transition: 0.2s ease;
+        transition: .2s ease;
     }
 
 
     .add-role-btn:hover {
 
-        background: var(--orange-dark);
+        background:
+            var(--orange-dark);
 
-        transform: translateY(-1px);
+        transform:
+            translateY(-1px);
     }
 
-
-    /* =====================================================
-       MAIN GRID
-    ===================================================== */
 
     .roles-grid {
 
         display: grid;
 
-        grid-template-columns: 285px 1fr;
+        grid-template-columns:
+            285px 1fr;
 
         gap: 20px;
     }
 
 
-    /* =====================================================
-       COMMON CARD
-    ===================================================== */
-
     .role-card,
     .permission-card {
 
-        background: #ffffff;
+        background: #fff;
 
         border: 1px solid var(--border);
 
         border-radius: 22px;
 
         box-shadow:
-            0 8px 25px rgba(16, 36, 82, 0.035);
+            0 8px 25px rgba(16, 36, 82, .035);
     }
 
-
-    /* =====================================================
-       ROLE LIST
-    ===================================================== */
 
     .role-card-header {
 
         padding: 21px;
 
-        border-bottom: 1px solid #f2e5d7;
+        border-bottom:
+            1px solid #f2e5d7;
     }
 
 
@@ -585,7 +890,7 @@ if (
 
         color: var(--muted);
 
-        transition: 0.2s ease;
+        transition: .2s ease;
     }
 
 
@@ -599,12 +904,13 @@ if (
 
     .role-item.active {
 
-        background: var(--navy);
+        background:
+            var(--navy);
 
-        color: #ffffff;
+        color: #fff;
 
         box-shadow:
-            0 5px 14px rgba(16, 36, 82, 0.12);
+            0 5px 14px rgba(16, 36, 82, .12);
     }
 
 
@@ -634,9 +940,11 @@ if (
 
         justify-content: center;
 
-        background: #fff3e6;
+        background:
+            #fff3e6;
 
-        color: var(--orange);
+        color:
+            var(--orange);
 
         flex-shrink: 0;
     }
@@ -644,9 +952,11 @@ if (
 
     .role-item.active .role-icon {
 
-        background: rgba(255, 255, 255, 0.1);
+        background:
+            rgba(255, 255, 255, .1);
 
-        color: #ffffff;
+        color:
+            #fff;
     }
 
 
@@ -664,7 +974,7 @@ if (
 
         font-size: 10px;
 
-        opacity: 0.65;
+        opacity: .65;
 
         margin-top: 2px;
 
@@ -686,10 +996,6 @@ if (
     }
 
 
-    /* =====================================================
-       PERMISSION HEADER
-    ===================================================== */
-
     .permission-header {
 
         padding: 21px;
@@ -702,7 +1008,8 @@ if (
 
         gap: 15px;
 
-        border-bottom: 1px solid #f2e5d7;
+        border-bottom:
+            1px solid #f2e5d7;
     }
 
 
@@ -728,541 +1035,698 @@ if (
 
     .full-access-badge {
 
-        background: #effdf6;
+        background:
+            #effdf6;
 
-        border: 1px solid #c9f3df;
+        border:
+            1px solid #c9f3df;
 
-        color: #10a968;
+        color:
+            #10a968;
 
-        padding: 7px 12px;
+        padding:
+            7px 12px;
 
-        border-radius: 20px;
+        border-radius:
+            20px;
 
-        font-size: 10px;
+        font-size:
+            10px;
 
-        font-weight: 800;
+        font-weight:
+            800;
 
-        white-space: nowrap;
+        white-space:
+            nowrap;
     }
 
 
-    /* =====================================================
-       SELECT ALL BAR
-    ===================================================== */
-
     .select-all-bar {
 
-        background: #fffaf5;
+        background:
+            #fffaf5;
 
-        border-bottom: 1px solid #f2e5d7;
+        border-bottom:
+            1px solid #f2e5d7;
 
-        padding: 13px 21px;
+        padding:
+            13px 21px;
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        justify-content: space-between;
+        justify-content:
+            space-between;
 
-        gap: 10px;
+        gap:
+            10px;
     }
 
 
     .select-all-label {
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        gap: 8px;
+        gap:
+            8px;
 
-        color: var(--navy);
+        color:
+            var(--navy);
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 800;
+        font-weight:
+            800;
 
-        cursor: pointer;
+        cursor:
+            pointer;
     }
 
 
-    /* =====================================================
-       PERMISSION CONTENT
-    ===================================================== */
-
     .permission-content {
 
-        padding: 18px 21px 21px;
+        padding:
+            18px 21px 21px;
     }
 
 
     .permission-module {
 
-        border: 1px solid #edf0f4;
+        border:
+            1px solid #edf0f4;
 
-        border-radius: 15px;
+        border-radius:
+            15px;
 
-        overflow: hidden;
+        overflow:
+            hidden;
 
-        margin-bottom: 13px;
+        margin-bottom:
+            13px;
 
-        background: #ffffff;
+        background:
+            #fff;
     }
 
 
     .permission-module:last-child {
 
-        margin-bottom: 0;
+        margin-bottom:
+            0;
     }
 
 
     .module-header {
 
-        background: #fffaf5;
+        background:
+            #fffaf5;
 
-        border-bottom: 1px solid #f2e5d7;
+        border-bottom:
+            1px solid #f2e5d7;
 
-        padding: 12px 15px;
+        padding:
+            12px 15px;
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        justify-content: space-between;
+        justify-content:
+            space-between;
 
-        gap: 10px;
+        gap:
+            10px;
     }
 
 
     .module-name {
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        gap: 8px;
+        gap:
+            8px;
 
-        color: var(--navy);
+        color:
+            var(--navy);
 
-        font-size: 13px;
+        font-size:
+            13px;
 
-        font-weight: 800;
+        font-weight:
+            800;
     }
 
 
     .module-name i {
 
-        color: var(--orange);
+        color:
+            var(--orange);
 
-        font-size: 18px;
+        font-size:
+            18px;
     }
 
 
     .module-select-label {
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        gap: 5px;
+        gap:
+            5px;
 
-        color: var(--muted);
+        color:
+            var(--muted);
 
-        font-size: 10px;
+        font-size:
+            10px;
 
-        font-weight: 700;
+        font-weight:
+            700;
 
-        cursor: pointer;
+        cursor:
+            pointer;
     }
 
 
     .permission-list {
 
-        padding: 12px;
+        padding:
+            12px;
 
-        display: grid;
+        display:
+            grid;
 
         grid-template-columns:
             repeat(3, minmax(0, 1fr));
 
-        gap: 8px;
+        gap:
+            8px;
     }
 
 
     .permission-item {
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        gap: 9px;
+        gap:
+            9px;
 
-        padding: 10px;
+        padding:
+            10px;
 
-        border: 1px solid #edf0f4;
+        border:
+            1px solid #edf0f4;
 
-        border-radius: 10px;
+        border-radius:
+            10px;
 
-        cursor: pointer;
+        cursor:
+            pointer;
 
-        transition: 0.15s ease;
+        transition:
+            .15s ease;
     }
 
 
     .permission-item:hover {
 
-        background: #fffaf5;
+        background:
+            #fffaf5;
 
-        border-color: #f3d7b9;
+        border-color:
+            #f3d7b9;
     }
 
 
     .permission-item input {
 
-        width: 16px;
+        width:
+            16px;
 
-        height: 16px;
+        height:
+            16px;
 
-        accent-color: var(--orange);
+        accent-color:
+            var(--orange);
 
-        cursor: pointer;
+        cursor:
+            pointer;
 
-        flex-shrink: 0;
+        flex-shrink:
+            0;
     }
 
 
     .permission-name {
 
-        color: #4f607a;
+        color:
+            #4f607a;
 
-        font-size: 11px;
+        font-size:
+            11px;
 
-        font-weight: 700;
+        font-weight:
+            700;
     }
 
 
     .permission-key {
 
-        color: #a0aabd;
+        color:
+            #a0aabd;
 
-        font-size: 9px;
+        font-size:
+            9px;
 
-        margin-top: 2px;
+        margin-top:
+            2px;
 
-        word-break: break-all;
+        word-break:
+            break-all;
     }
 
 
-    /* =====================================================
-       SAVE BAR
-    ===================================================== */
-
     .save-bar {
 
-        padding: 16px 21px;
+        padding:
+            16px 21px;
 
-        border-top: 1px solid #f2e5d7;
+        border-top:
+            1px solid #f2e5d7;
 
-        display: flex;
+        display:
+            flex;
 
-        justify-content: flex-end;
+        justify-content:
+            flex-end;
 
-        align-items: center;
+        align-items:
+            center;
 
-        gap: 12px;
+        gap:
+            12px;
     }
 
 
     .save-btn {
 
-        background: var(--navy);
+        background:
+            var(--navy);
 
-        color: #ffffff;
+        color:
+            #fff;
 
-        border: none;
+        border:
+            none;
 
-        border-radius: 12px;
+        border-radius:
+            12px;
 
-        padding: 11px 20px;
+        padding:
+            11px 20px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 800;
+        font-weight:
+            800;
 
-        cursor: pointer;
+        cursor:
+            pointer;
 
-        transition: 0.2s ease;
+        transition:
+            .2s ease;
     }
 
 
     .save-btn:hover {
 
-        background: var(--navy-dark);
+        background:
+            var(--navy-dark);
 
-        transform: translateY(-1px);
+        transform:
+            translateY(-1px);
     }
 
 
     .admin-info {
 
-        color: var(--muted);
+        color:
+            var(--muted);
 
-        font-size: 11px;
+        font-size:
+            11px;
     }
 
 
-    /* =====================================================
-       ALERT
-    ===================================================== */
-
     .alert-success {
 
-        background: #effdf6;
+        background:
+            #effdf6;
 
-        border: 1px solid #c9f3df;
+        border:
+            1px solid #c9f3df;
 
-        color: #15915d;
+        color:
+            #15915d;
 
-        border-radius: 13px;
+        border-radius:
+            13px;
 
-        padding: 12px 15px;
+        padding:
+            12px 15px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 700;
+        font-weight:
+            700;
 
-        margin-bottom: 18px;
+        margin-bottom:
+            18px;
     }
 
 
     .alert-error {
 
-        background: #fff2f2;
+        background:
+            #fff2f2;
 
-        border: 1px solid #ffd0d0;
+        border:
+            1px solid #ffd0d0;
 
-        color: #d64e58;
+        color:
+            #d64e58;
 
-        border-radius: 13px;
+        border-radius:
+            13px;
 
-        padding: 12px 15px;
+        padding:
+            12px 15px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 700;
+        font-weight:
+            700;
 
-        margin-bottom: 18px;
+        margin-bottom:
+            18px;
     }
 
 
-    /* =====================================================
-       MODAL
-    ===================================================== */
-
     .role-modal {
 
-        position: fixed;
+        position:
+            fixed;
 
-        inset: 0;
+        inset:
+            0;
 
-        background: rgba(16, 36, 82, 0.35);
+        background:
+            rgba(16, 36, 82, .35);
 
-        backdrop-filter: blur(5px);
+        backdrop-filter:
+            blur(5px);
 
-        display: none;
+        display:
+            none;
 
-        align-items: center;
+        align-items:
+            center;
 
-        justify-content: center;
+        justify-content:
+            center;
 
-        padding: 20px;
+        padding:
+            20px;
 
-        z-index: 9999;
+        z-index:
+            9999;
     }
 
 
     .role-modal.show {
 
-        display: flex;
+        display:
+            flex;
     }
 
 
     .modal-box {
 
-        width: 100%;
+        width:
+            100%;
 
-        max-width: 440px;
+        max-width:
+            440px;
 
-        background: #ffffff;
+        background:
+            #fff;
 
-        border-radius: 20px;
+        border-radius:
+            20px;
 
-        border: 1px solid var(--border);
+        border:
+            1px solid var(--border);
 
         box-shadow:
-            0 25px 70px rgba(16, 36, 82, 0.18);
+            0 25px 70px rgba(16, 36, 82, .18);
 
-        overflow: hidden;
+        overflow:
+            hidden;
     }
 
 
     .modal-header {
 
-        padding: 19px 20px;
+        padding:
+            19px 20px;
 
-        border-bottom: 1px solid #f2e5d7;
+        border-bottom:
+            1px solid #f2e5d7;
 
-        display: flex;
+        display:
+            flex;
 
-        align-items: center;
+        align-items:
+            center;
 
-        justify-content: space-between;
+        justify-content:
+            space-between;
     }
 
 
     .modal-title {
 
-        color: var(--navy);
+        color:
+            var(--navy);
 
-        font-size: 17px;
+        font-size:
+            17px;
 
-        font-weight: 800;
+        font-weight:
+            800;
     }
 
 
     .modal-close {
 
-        width: 32px;
+        width:
+            32px;
 
-        height: 32px;
+        height:
+            32px;
 
-        border: none;
+        border:
+            none;
 
-        background: #fff3e6;
+        background:
+            #fff3e6;
 
-        color: var(--orange);
+        color:
+            var(--orange);
 
-        border-radius: 9px;
+        border-radius:
+            9px;
 
-        cursor: pointer;
+        cursor:
+            pointer;
 
-        font-size: 18px;
+        font-size:
+            18px;
     }
 
 
     .modal-body {
 
-        padding: 20px;
+        padding:
+            20px;
     }
 
 
     .form-label {
 
-        display: block;
+        display:
+            block;
 
-        color: var(--navy);
+        color:
+            var(--navy);
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 800;
+        font-weight:
+            800;
 
-        margin-bottom: 6px;
+        margin-bottom:
+            6px;
     }
 
 
     .form-input {
 
-        width: 100%;
+        width:
+            100%;
 
-        border: 1px solid #dce3ee;
+        border:
+            1px solid #dce3ee;
 
-        border-radius: 11px;
+        border-radius:
+            11px;
 
-        padding: 11px 13px;
+        padding:
+            11px 13px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        outline: none;
+        outline:
+            none;
 
-        color: var(--navy);
+        color:
+            var(--navy);
 
-        transition: 0.2s ease;
+        transition:
+            .2s ease;
     }
 
 
     .form-input:focus {
 
-        border-color: var(--orange);
+        border-color:
+            var(--orange);
 
         box-shadow:
-            0 0 0 4px rgba(244, 124, 0, 0.08);
+            0 0 0 4px rgba(244, 124, 0, .08);
     }
 
 
     .modal-footer {
 
-        padding: 15px 20px;
+        padding:
+            15px 20px;
 
-        border-top: 1px solid #f2e5d7;
+        border-top:
+            1px solid #f2e5d7;
 
-        display: flex;
+        display:
+            flex;
 
-        justify-content: flex-end;
+        justify-content:
+            flex-end;
 
-        gap: 8px;
+        gap:
+            8px;
     }
 
 
     .cancel-btn {
 
-        border: 1px solid #dce3ee;
+        border:
+            1px solid #dce3ee;
 
-        background: #ffffff;
+        background:
+            #fff;
 
-        color: var(--muted);
+        color:
+            var(--muted);
 
-        border-radius: 11px;
+        border-radius:
+            11px;
 
-        padding: 10px 17px;
+        padding:
+            10px 17px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 700;
+        font-weight:
+            700;
 
-        cursor: pointer;
+        cursor:
+            pointer;
     }
 
 
     .create-btn {
 
-        border: none;
+        border:
+            none;
 
-        background: var(--orange);
+        background:
+            var(--orange);
 
-        color: #ffffff;
+        color:
+            #fff;
 
-        border-radius: 11px;
+        border-radius:
+            11px;
 
-        padding: 10px 18px;
+        padding:
+            10px 18px;
 
-        font-size: 12px;
+        font-size:
+            12px;
 
-        font-weight: 800;
+        font-weight:
+            800;
 
-        cursor: pointer;
+        cursor:
+            pointer;
     }
 
-
-    /* =====================================================
-       RESPONSIVE
-    ===================================================== */
 
     @media (max-width: 1100px) {
 
         .roles-grid {
 
-            grid-template-columns: 240px 1fr;
+            grid-template-columns:
+                240px 1fr;
         }
+
 
         .permission-list {
 
@@ -1276,62 +1740,49 @@ if (
 
         .roles-grid {
 
-            grid-template-columns: 1fr;
+            grid-template-columns:
+                1fr;
         }
+
 
         .permission-list {
 
-            grid-template-columns: 1fr;
+            grid-template-columns:
+                1fr;
         }
+
 
         .permission-header {
 
-            align-items: flex-start;
+            align-items:
+                flex-start;
 
-            flex-direction: column;
+            flex-direction:
+                column;
         }
-
-    }
-
-
-    @media (max-width: 600px) {
-
-        .roles-header {
-
-            padding: 19px;
-        }
-
-        .roles-header-content {
-
-            flex-direction: column;
-
-            align-items: stretch;
-        }
-
-        .add-role-btn {
-
-            justify-content: center;
-        }
-
-        .permission-content {
-
-            padding: 13px;
-        }
-
     }
 </style>
 
 
+<!-- =========================================================
+     PAGE
+========================================================= -->
+
 <div class="roles-page p-4 md:p-6 lg:p-8">
 
 
-    <!-- =========================================================
-         PAGE HEADER
-    ========================================================== -->
+    <!-- HEADER -->
 
     <div class="roles-header mb-5">
 
-        <div class="roles-header-content flex items-center justify-between gap-5">
+
+        <div
+            class="roles-header-content
+                   flex
+                   items-center
+                   justify-between
+                   gap-5">
+
 
             <div>
 
@@ -1339,36 +1790,35 @@ if (
                     Roles & Permissions
                 </h1>
 
+
                 <p class="roles-description">
-                    Manage roles and control system access for Khalilabad Nagar Palika.
+
+                    Manage roles and control system access
+                    for Khalilabad Nagar Palika.
+
                 </p>
 
             </div>
 
 
-            <?php if (hasPermission('roles.add') || $is_admin_role): ?>
+            <button
+                type="button"
+                onclick="openRoleModal()"
+                class="add-role-btn">
 
-                <button
-                    type="button"
-                    onclick="openRoleModal()"
-                    class="add-role-btn">
+                <i class='bx bx-plus text-lg'></i>
 
-                    <i class='bx bx-plus text-lg'></i>
+                Add New Role
 
-                    Add New Role
+            </button>
 
-                </button>
-
-            <?php endif; ?>
 
         </div>
 
     </div>
 
 
-    <!-- =========================================================
-         ALERTS
-    ========================================================== -->
+    <!-- ALERT -->
 
     <?php if ($success): ?>
 
@@ -1376,7 +1826,9 @@ if (
 
             <i class='bx bx-check-circle mr-1'></i>
 
-            <?= htmlspecialchars($success) ?>
+            <?= htmlspecialchars(
+                $success
+            ) ?>
 
         </div>
 
@@ -1389,23 +1841,23 @@ if (
 
             <i class='bx bx-error-circle mr-1'></i>
 
-            <?= htmlspecialchars($error) ?>
+            <?= htmlspecialchars(
+                $error
+            ) ?>
 
         </div>
 
     <?php endif; ?>
 
 
-    <!-- =========================================================
-         MAIN GRID
-    ========================================================== -->
+    <!-- MAIN -->
 
     <div class="roles-grid">
 
 
-        <!-- =====================================================
-             LEFT : ROLES
-        ====================================================== -->
+        <!-- =================================================
+             ROLES
+        ================================================== -->
 
         <div class="role-card">
 
@@ -1416,8 +1868,11 @@ if (
                     Roles
                 </div>
 
+
                 <div class="role-card-description">
+
                     Select a role to manage permissions
+
                 </div>
 
             </div>
@@ -1429,12 +1884,19 @@ if (
                 <?php if (!empty($roles)): ?>
 
 
-                    <?php foreach ($roles as $role): ?>
+                    <?php foreach (
+                        $roles as $role
+                    ): ?>
+
 
                         <?php
 
                         $is_selected =
-                            ((int)$role['id'] === $selected_role);
+                            (
+                                (int)$role['id']
+                                ===
+                                $selected_role
+                            );
 
                         ?>
 
@@ -1465,7 +1927,9 @@ if (
                                     </div>
 
 
-                                    <?php if (!empty($role['description'])): ?>
+                                    <?php if (
+                                        !empty($role['description'])
+                                    ): ?>
 
                                         <div class="role-description">
 
@@ -1477,13 +1941,16 @@ if (
 
                                     <?php endif; ?>
 
+
                                 </div>
 
 
                             </div>
 
 
-                            <i class='bx bx-chevron-right role-arrow'></i>
+                            <i
+                                class='bx bx-chevron-right role-arrow'>
+                            </i>
 
 
                         </a>
@@ -1495,7 +1962,11 @@ if (
                 <?php else: ?>
 
 
-                    <div class="text-center py-8 text-slate-400 text-xs">
+                    <div
+                        class="text-center
+                               py-8
+                               text-slate-400
+                               text-xs">
 
                         No roles found.
 
@@ -1510,17 +1981,15 @@ if (
         </div>
 
 
-        <!-- =====================================================
-             RIGHT : PERMISSIONS
-        ====================================================== -->
+        <!-- =================================================
+             PERMISSIONS
+        ================================================== -->
 
         <div class="permission-card">
 
 
             <?php if ($selected_role_data): ?>
 
-
-                <!-- HEADER -->
 
                 <div class="permission-header">
 
@@ -1536,7 +2005,8 @@ if (
                         </div>
 
 
-                        <div class="selected-role-description">
+                        <div
+                            class="selected-role-description">
 
                             <?=
                             !empty($selected_role_data['description'])
@@ -1553,9 +2023,12 @@ if (
 
                     <?php if ($is_admin_role): ?>
 
-                        <span class="full-access-badge">
+                        <span
+                            class="full-access-badge">
 
-                            <i class='bx bx-check-circle mr-1'></i>
+                            <i
+                                class='bx bx-check-circle mr-1'>
+                            </i>
 
                             FULL ACCESS
 
@@ -1572,21 +2045,29 @@ if (
                 <div class="select-all-bar">
 
 
-                    <label class="select-all-label">
+                    <label
+                        class="select-all-label">
+
 
                         <input
                             type="checkbox"
                             id="selectAll"
-                            onchange="toggleAllPermissions(this)">
+                            onchange="toggleAllPermissions(this)"
+                            <?= $is_admin_role ? 'checked' : '' ?>>
+
 
                         Select All Permissions
+
 
                     </label>
 
 
-                    <span class="text-[10px] text-slate-400">
+                    <span
+                        class="text-[10px]
+                               text-slate-400">
 
-                        <?= count($permissions) ?> permissions
+                        <?= count($permissions) ?>
+                        permissions
 
                     </span>
 
@@ -1605,16 +2086,19 @@ if (
                         value="<?= $selected_role ?>">
 
 
-                    <!-- PERMISSION CONTENT -->
+                    <div
+                        class="permission-content">
 
-                    <div class="permission-content">
 
-
-                        <?php if (!empty($grouped_permissions)): ?>
+                        <?php if (
+                            !empty($grouped_permissions)
+                        ): ?>
 
 
                             <?php foreach (
-                                $grouped_permissions as $module => $module_permissions
+                                $grouped_permissions
+                                as $module =>
+                                $module_permissions
                             ): ?>
 
 
@@ -1627,32 +2111,50 @@ if (
                                 ?>
 
 
-                                <div class="permission-module">
+                                <div
+                                    class="permission-module">
 
 
-                                    <!-- MODULE HEADER -->
+                                    <!-- MODULE -->
 
-                                    <div class="module-header">
+                                    <div
+                                        class="module-header">
 
 
-                                        <div class="module-name">
+                                        <div
+                                            class="module-name">
 
-                                            <i class='bx bx-folder'></i>
+                                            <i
+                                                class='bx bx-folder'>
+                                            </i>
 
-                                            <?= htmlspecialchars($module) ?>
+
+                                            <?= htmlspecialchars(
+                                                $module
+                                            ) ?>
 
                                         </div>
 
 
-                                        <label class="module-select-label">
+                                        <label
+                                            class="module-select-label">
+
 
                                             <input
                                                 type="checkbox"
                                                 class="module-master"
                                                 data-module="<?= $module_id ?>"
-                                                onchange="toggleModule(this)">
+                                                onchange="toggleModule(this)"
+                                                <?= (
+                                                    $is_admin_role
+                                                )
+                                                    ? 'checked'
+                                                    : ''
+                                                ?>>
+
 
                                             Select All
+
 
                                         </label>
 
@@ -1662,15 +2164,18 @@ if (
 
                                     <!-- PERMISSIONS -->
 
-                                    <div class="permission-list">
+                                    <div
+                                        class="permission-list">
 
 
                                         <?php foreach (
-                                            $module_permissions as $permission
+                                            $module_permissions
+                                            as $permission
                                         ): ?>
 
 
-                                            <label class="permission-item">
+                                            <label
+                                                class="permission-item">
 
 
                                                 <input
@@ -1693,7 +2198,9 @@ if (
 
                                                 <div>
 
-                                                    <div class="permission-name">
+
+                                                    <div
+                                                        class="permission-name">
 
                                                         <?= htmlspecialchars(
                                                             $permission['permission_name']
@@ -1702,13 +2209,15 @@ if (
                                                     </div>
 
 
-                                                    <div class="permission-key">
+                                                    <div
+                                                        class="permission-key">
 
                                                         <?= htmlspecialchars(
                                                             $permission['permission_key']
                                                         ) ?>
 
                                                     </div>
+
 
                                                 </div>
 
@@ -1731,17 +2240,36 @@ if (
                         <?php else: ?>
 
 
-                            <div class="text-center py-12 text-slate-400">
+                            <div
+                                class="text-center
+                                       py-12
+                                       text-slate-400">
 
-                                <i class='bx bx-lock-alt text-4xl mb-2'></i>
 
-                                <div class="text-sm font-bold text-slate-700">
+                                <i
+                                    class='bx bx-lock-alt text-4xl mb-2'>
+                                </i>
+
+
+                                <div
+                                    class="text-sm
+                                           font-bold
+                                           text-slate-700">
+
                                     No permissions found
+
                                 </div>
 
-                                <div class="text-xs mt-1">
-                                    Add permissions to the permissions table first.
+
+                                <div
+                                    class="text-xs
+                                           mt-1">
+
+                                    Add permissions to the
+                                    permissions table first.
+
                                 </div>
+
 
                             </div>
 
@@ -1752,16 +2280,19 @@ if (
                     </div>
 
 
-                    <!-- SAVE -->
+                    <!-- SAVE BAR -->
 
                     <div class="save-bar">
 
 
                         <?php if ($is_admin_role): ?>
 
+
                             <span class="admin-info">
 
-                                <i class='bx bx-info-circle mr-1'></i>
+                                <i
+                                    class='bx bx-info-circle mr-1'>
+                                </i>
 
                                 ADMIN automatically has full access.
 
@@ -1771,23 +2302,18 @@ if (
                         <?php else: ?>
 
 
-                            <?php if (
-                                hasPermission('roles.manage_permissions') ||
-                                hasPermission('roles.edit')
-                            ): ?>
+                            <button
+                                type="submit"
+                                name="save_permissions"
+                                class="save-btn">
 
-                                <button
-                                    type="submit"
-                                    name="save_permissions"
-                                    class="save-btn">
+                                <i
+                                    class='bx bx-save mr-1'>
+                                </i>
 
-                                    <i class='bx bx-save mr-1'></i>
+                                Save Permissions
 
-                                    Save Permissions
-
-                                </button>
-
-                            <?php endif; ?>
+                            </button>
 
 
                         <?php endif; ?>
@@ -1802,17 +2328,35 @@ if (
             <?php else: ?>
 
 
-                <div class="text-center py-20 text-slate-400">
+                <div
+                    class="text-center
+                           py-20
+                           text-slate-400">
 
-                    <i class='bx bx-shield-x text-5xl mb-3'></i>
 
-                    <div class="text-sm font-bold text-slate-700">
+                    <i
+                        class='bx bx-shield-x text-5xl mb-3'>
+                    </i>
+
+
+                    <div
+                        class="text-sm
+                               font-bold
+                               text-slate-700">
+
                         No Role Selected
+
                     </div>
 
-                    <div class="text-xs mt-1">
+
+                    <div
+                        class="text-xs
+                               mt-1">
+
                         Select a role from the left side.
+
                     </div>
+
 
                 </div>
 
@@ -1831,7 +2375,7 @@ if (
 
 <!-- =========================================================
      ADD ROLE MODAL
-========================================================== -->
+========================================================= -->
 
 <div
     id="roleModal"
@@ -1840,8 +2384,6 @@ if (
 
     <div class="modal-box">
 
-
-        <!-- HEADER -->
 
         <div class="modal-header">
 
@@ -1866,8 +2408,6 @@ if (
         </div>
 
 
-        <!-- FORM -->
-
         <form method="POST">
 
 
@@ -1878,7 +2418,9 @@ if (
 
 
                     <label class="form-label">
+
                         Role Name
+
                     </label>
 
 
@@ -1897,7 +2439,9 @@ if (
 
 
                     <label class="form-label">
+
                         Description
+
                     </label>
 
 
@@ -1913,8 +2457,6 @@ if (
 
             </div>
 
-
-            <!-- FOOTER -->
 
             <div class="modal-footer">
 
@@ -1954,39 +2496,45 @@ if (
 
 <script>
     // =========================================================
-    // OPEN MODAL
+    // ROLE MODAL
     // =========================================================
 
     function openRoleModal() {
 
         const modal =
-            document.getElementById("roleModal");
+            document.getElementById(
+                "roleModal"
+            );
+
 
         if (modal) {
 
-            modal.classList.add("show");
+            modal.classList.add(
+                "show"
+            );
         }
     }
 
-
-    // =========================================================
-    // CLOSE MODAL
-    // =========================================================
 
     function closeRoleModal() {
 
         const modal =
-            document.getElementById("roleModal");
+            document.getElementById(
+                "roleModal"
+            );
+
 
         if (modal) {
 
-            modal.classList.remove("show");
+            modal.classList.remove(
+                "show"
+            );
         }
     }
 
 
     // =========================================================
-    // CLOSE MODAL ON BACKDROP CLICK
+    // BACKDROP
     // =========================================================
 
     document.addEventListener(
@@ -1994,7 +2542,10 @@ if (
         function(event) {
 
             const modal =
-                document.getElementById("roleModal");
+                document.getElementById(
+                    "roleModal"
+                );
+
 
             if (
                 modal &&
@@ -2009,10 +2560,12 @@ if (
 
 
     // =========================================================
-    // SELECT ALL PERMISSIONS
+    // SELECT ALL
     // =========================================================
 
-    function toggleAllPermissions(master) {
+    function toggleAllPermissions(
+        master
+    ) {
 
         const checkboxes =
             document.querySelectorAll(
@@ -2020,23 +2573,28 @@ if (
             );
 
 
-        checkboxes.forEach(function(checkbox) {
-
-            checkbox.checked =
-                master.checked;
-
-        });
-
-
-        document
-            .querySelectorAll(".module-master")
-            .forEach(function(checkbox) {
+        checkboxes.forEach(
+            function(checkbox) {
 
                 checkbox.checked =
                     master.checked;
 
-            });
+            }
+        );
 
+
+        document
+            .querySelectorAll(
+                ".module-master"
+            )
+            .forEach(
+                function(checkbox) {
+
+                    checkbox.checked =
+                        master.checked;
+
+                }
+            );
     }
 
 
@@ -2044,7 +2602,9 @@ if (
     // MODULE SELECT ALL
     // =========================================================
 
-    function toggleModule(master) {
+    function toggleModule(
+        master
+    ) {
 
         const moduleClass =
             master.getAttribute(
@@ -2058,12 +2618,14 @@ if (
             );
 
 
-        checkboxes.forEach(function(checkbox) {
+        checkboxes.forEach(
+            function(checkbox) {
 
-            checkbox.checked =
-                master.checked;
+                checkbox.checked =
+                    master.checked;
 
-        });
+            }
+        );
 
 
         updateMainSelectAll();
@@ -2071,44 +2633,54 @@ if (
 
 
     // =========================================================
-    // UPDATE CHECKBOX STATES
+    // UPDATE CHECKBOXES
     // =========================================================
 
     function updateCheckboxStates() {
 
 
         document
-            .querySelectorAll(".module-master")
-            .forEach(function(master) {
+            .querySelectorAll(
+                ".module-master"
+            )
+            .forEach(
+                function(master) {
 
 
-                const moduleClass =
-                    master.getAttribute(
-                        "data-module"
-                    );
+                    const moduleClass =
+                        master.getAttribute(
+                            "data-module"
+                        );
 
 
-                const checkboxes =
-                    document.querySelectorAll(
-                        "." + moduleClass
-                    );
+                    const checkboxes =
+                        document.querySelectorAll(
+                            "." + moduleClass
+                        );
 
 
-                if (!checkboxes.length) {
-                    return;
+                    if (
+                        !checkboxes.length
+                    ) {
+
+                        return;
+                    }
+
+
+                    const checked =
+                        document.querySelectorAll(
+                            "." +
+                            moduleClass +
+                            ":checked"
+                        ).length;
+
+
+                    master.checked =
+                        checked ===
+                        checkboxes.length;
+
                 }
-
-
-                const checked =
-                    document.querySelectorAll(
-                        "." + moduleClass + ":checked"
-                    ).length;
-
-
-                master.checked =
-                    checked === checkboxes.length;
-
-            });
+            );
 
 
         updateMainSelectAll();
@@ -2141,6 +2713,7 @@ if (
 
 
         if (!selectAll) {
+
             return;
         }
 
@@ -2152,7 +2725,7 @@ if (
 
 
     // =========================================================
-    // INITIAL CHECK
+    // INITIAL
     // =========================================================
 
     document.addEventListener(
@@ -2166,4 +2739,10 @@ if (
 </script>
 
 
-<?php include "./include/footer.php"; ?>
+<?php
+
+$conn->close();
+
+include "./include/footer.php";
+
+?>

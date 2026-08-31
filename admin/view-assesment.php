@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit;
@@ -12,16 +13,14 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-
 $base_image_path = 'admin-uploads/';
 $default_image_file = 'man.png';
 $default_image_src = $default_image_file;
 
-$user_id = $_SESSION['user_id'];
+$user_id = (int)$_SESSION['user_id'];
 
 // Prepare SQL statement to fetch user data
-// Using prepared statements for security (prevents SQL Injection)
-$stmt = $conn->prepare("SELECT username, email, role, profile_pic FROM users WHERE id = ? AND status = 'active'");
+$stmt = $conn->prepare("SELECT username, email, role, role_id, profile_pic FROM users WHERE id = ? AND status = 'active'");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -30,6 +29,7 @@ $result = $stmt->get_result();
 $user_name = "User Not Found";
 $user_email = "Email Not Found";
 $user_role = "user"; // Default role
+$user_role_id = 0;
 $profile_image_src = $default_image_src;
 
 if ($result->num_rows === 1) {
@@ -40,14 +40,12 @@ if ($result->num_rows === 1) {
     $user_name = $user_data['username'];
     $user_email = $user_data['email'];
     $user_role = $user_data['role'];
+    $user_role_id = (int)($user_data['role_id'] ?? 0);
 
     if (!empty($user_data['profile_pic'])) {
-        // If profile_image column is NOT empty, construct the dynamic path
-        // $base_image_path (admin-uploads/) + $user_data['profile_image'] (filename)
         $profile_image_src = $base_image_path . htmlspecialchars($user_data['profile_pic']);
     }
 }
-
 $stmt->close();
 
 $records_per_page = 20;
@@ -57,44 +55,70 @@ $offset = ($current_page - 1) * $records_per_page;
 // ----------------------
 // ✅ FILTER LOGIC
 // ----------------------
-$conditions = ["a.is_deleted = 0"]; // Base condition (alias a for assessments)
+$conditions = ["a.is_deleted = 0"];
 $params = [];
 $types = "";
 
+// ⭐ ROLE-BASED VISIBILITY RESTRICTION ⭐
+$is_admin = in_array(strtoupper(trim($user_role)), ['ADMIN', 'SUPER ADMIN', 'ADMINISTRATOR']);
+
+if (!$is_admin) {
+    // Non-admins see records currently assigned to their role.
+    // They will NOT see records they created while they are pending with a senior/next role.
+    // They will only see their created records again once fully approved or rejected.
+    $conditions[] = "(a.current_verification_role_id = ? OR (a.created_by = ? AND a.verification_status != 'pending'))";
+    $params[] = $user_role_id;
+    $params[] = $user_id;
+    $types .= "ii";
+}
+
+// VERIFICATION STATUS FILTER: pending / reject / approved
+$status_filter = strtolower(trim($_GET['status'] ?? ''));
+
+if ($status_filter === 'rejected') {
+    $status_filter = 'reject';
+}
+
+if (in_array($status_filter, ['pending', 'reject', 'approved'], true)) {
+    $conditions[] = "LOWER(TRIM(COALESCE(NULLIF(a.verification_status, ''), 'pending'))) = ?";
+    $params[] = $status_filter;
+    $types .= "s";
+} else {
+    $status_filter = '';
+}
+
 // OR filter group
 $orConditions = [];
-$joinOwners = false; // check if owner/mobile filter applied
+$joinOwners = false;
 
-// Holding Number (partial match)
+// Holding Number
 if (!empty($_GET['new_holding'])) {
     $orConditions[] = "a.new_holding LIKE ?";
     $params[] = "%" . $_GET['new_holding'] . "%";
     $types .= "s";
 }
 
-// Ward Number (EXACT MATCH)
+// Ward Number
 if (!empty($_GET['ward'])) {
     $orConditions[] = "a.ward = ?";
     $params[] = $_GET['ward'];
     $types .= "s";
 }
 
-// Owner Name (partial match from assessment_owners table)
+// Owner Name
 if (!empty($_GET['owner_name'])) {
-    // Filter by active owners only
     $orConditions[] = "o.owner_name LIKE ? AND o.is_deleted = 0";
     $params[] = "%" . $_GET['owner_name'] . "%";
     $types .= "s";
-    $joinOwners = true; // need join
+    $joinOwners = true;
 }
 
-// Mobile Number (partial match from assessment_owners table)
+// Mobile Number
 if (!empty($_GET['mobile_number'])) {
-    // Filter by active owners only
     $orConditions[] = "o.mobile LIKE ? AND o.is_deleted = 0";
     $params[] = "%" . $_GET['mobile_number'] . "%";
     $types .= "s";
-    $joinOwners = true; // need join
+    $joinOwners = true;
 }
 
 // Combine OR filters
@@ -124,23 +148,35 @@ $total_records = $row_count['total_records'] ?? 0;
 $total_pages = $total_records > 0 ? ceil($total_records / $records_per_page) : 1;
 
 // ----------------------
-// ✅ FETCH DATA WITH FILTERS + PAGINATION
+// ✅ FETCH DATA WITH FILTERS + ROLE JOINS
 // ----------------------
 $sql = "SELECT a.id, 
                a.municipality_name, 
                a.year_of_assessment, 
                a.ward, 
                a.new_holding, 
-               a.property_type, 
+               a.property_type,
+               a.verification_status,
+               a.current_verification_role_id,
                a.created_at,
                a.latitude,
                a.longitude,
-               -- ⭐ UPDATED: Only show owner names if is_deleted = 0 ⭐
                GROUP_CONCAT(DISTINCT CASE WHEN o.is_deleted = 0 THEN o.owner_name END SEPARATOR ', ') AS owner_name,
-               GROUP_CONCAT(DISTINCT CASE WHEN o.is_deleted = 0 THEN o.mobile END SEPARATOR ', ') AS mobile_numbers
-               -- ⭐ END UPDATED ⭐
+               GROUP_CONCAT(DISTINCT CASE WHEN o.is_deleted = 0 THEN o.mobile END SEPARATOR ', ') AS mobile_numbers,
+               
+               -- ⭐ ARV details
+               MAX(pad.id) AS arv_record_id,
+       		   MAX(pad.arv_status) AS arv_status,
+               
+               -- ⭐ Added By Role Details
+               cu.name AS creator_name,
+               cr.role_name AS creator_role_name
+               
         FROM assessments a
         LEFT JOIN assessment_owners o ON a.id = o.assessment_id
+        LEFT JOIN property_arv_details pad ON a.id = pad.assessment_id
+        LEFT JOIN users cu ON a.created_by = cu.id
+        LEFT JOIN roles cr ON cu.role_id = cr.id
         $where_sql
         GROUP BY a.id
         ORDER BY a.id DESC 
@@ -148,21 +184,16 @@ $sql = "SELECT a.id,
 
 $stmt = $conn->prepare($sql);
 if ($types) {
-    $stmt->bind_param($types, ...$params); // only filter params
+    $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Serial numbers
 $start_sr_no = $offset;
 
-// ----------------------
-// ✅ PAGINATION LINKS (Preserve filters)
-// ----------------------
 $queryString = $_GET;
-unset($queryString['page']); // page को छोड़कर बाकी सब preserve करो
+unset($queryString['page']);
 $queryStr = http_build_query($queryString);
-
 ?>
 
 
@@ -172,52 +203,34 @@ $queryStr = http_build_query($queryString);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Assessments - Deoria Property Tax</title>
+    <title>View Assessments - Khalilabad Property Tax</title>
     <link href="img/favicon.ico" rel="icon">
     <link href='css/mystyle.css' rel='stylesheet'>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
-
     <style>
-        /* This CSS ensures the 'Actions' column sticks to the right 
-        when the table scrolls horizontally inside its parent (.overflow-x-auto).
-        */
         .sticky-action-column {
             position: sticky;
             right: 0;
             background-color: white;
-            /* Important: Set background color to cover the scrolling content */
             z-index: 10;
-            /* Keep it above the scrolling content */
             box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
-            /* Optional: Shadow for separation */
         }
 
-        /* Match the background of the table header for the sticky header cell */
         .table-header .sticky-action-column {
             background-color: #f9fafb;
-            /* Assuming a light gray header background */
-            /* You might need to adjust this color to match 'table-header' style */
             z-index: 11;
-            /* Keep header above body cell */
         }
 
-        /* Ensure table cells have padding/alignment */
         .table-cell {
             padding-top: 0.75rem;
-            /* py-3 */
             padding-bottom: 0.75rem;
-            /* py-3 */
             padding-left: 0.5rem;
-            /* px-2, adjust as needed */
             padding-right: 0.5rem;
-            /* px-2, adjust as needed */
         }
     </style>
-
 </head>
 
 <body class="flex min-h-screen text-gray-800">
@@ -267,8 +280,55 @@ $queryStr = http_build_query($queryString);
         </header>
 
         <div class="glass rounded-2xl p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-bold">Property Assessment Records</h3>
+            <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
+                <h3 class="text-xl font-bold">Property Assessment Records </h3>
+
+                <!-- STATUS FILTER BUTTONS -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <?php
+                    $status_buttons = [
+                        ''         => ['label' => 'All',      'class' => 'gray'],
+                        'pending'  => ['label' => 'Pending', 'class' => 'yellow'],
+                        'reject'   => ['label' => 'Rejected', 'class' => 'red'],
+                        'approved' => ['label' => 'Approved', 'class' => 'green'],
+                    ];
+
+                    foreach ($status_buttons as $status_key => $status_btn):
+                        $is_active = ($status_filter === $status_key);
+
+                        $button_classes = [
+                            'gray'   => $is_active ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                            'yellow' => $is_active ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
+                            'red'    => $is_active ? 'bg-red-500 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100',
+                            'green'  => $is_active ? 'bg-green-500 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100',
+                        ];
+                    ?>
+                        <?php
+                        $status_query = $_GET;
+                        unset($status_query['page']);
+                        if ($status_key === '') {
+                            unset($status_query['status']);
+                        } else {
+                            $status_query['status'] = $status_key;
+                        }
+                        $status_href = '?' . http_build_query($status_query);
+                        ?>
+                        <a href="<?= htmlspecialchars($status_href) ?>"
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition <?= $button_classes[$status_btn['class']] ?>">
+                            <?php if ($status_key === 'pending'): ?>
+                                <i class="fa fa-clock-o"></i>
+                            <?php elseif ($status_key === 'reject'): ?>
+                                <i class="fa fa-times-circle"></i>
+                            <?php elseif ($status_key === 'approved'): ?>
+                                <i class="fa fa-check-circle"></i>
+                            <?php else: ?>
+                                <i class="fa fa-list"></i>
+                            <?php endif; ?>
+                            <?= htmlspecialchars($status_btn['label']) ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+
                 <div class="flex items-center space-x-3">
                     <button id="dateRangeBtn" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition" title="Export by date range">
                         <i class="fa fa-calendar text-gray-700" aria-hidden="true"></i>
@@ -296,6 +356,8 @@ $queryStr = http_build_query($queryString);
                                 <th class="table-cell text-left">Ward</th>
                                 <th class="table-cell text-left">New Holding No.</th>
                                 <th class="table-cell text-left">Property Type</th>
+                                <th class="table-cell text-left">Status</th>
+                                <!-- <th class="table-cell text-left">Added By</th> -->
                                 <th class="table-cell text-left">Created At</th>
                                 <th class="table-cell text-center sticky-action-column">Actions</th>
                             </tr>
@@ -303,7 +365,35 @@ $queryStr = http_build_query($queryString);
                         <tbody>
                             <?php
                             $sr_no = $start_sr_no + 1;
-                            while ($row = $result->fetch_assoc()): ?>
+                            while ($row = $result->fetch_assoc()):
+
+                                // ⭐ B, G, N LOGIC START ⭐
+                                $demand_icon = "";
+                                $demand_class = "";
+                                $demand_title = "";
+                                $click_action = "";
+
+                                if (!empty($row['arv_record_id'])) {
+                                    if ($row['arv_status'] === 'bulk') {
+                                        $demand_icon  = "B";
+                                        $demand_class = "bg-blue-100 text-blue-600 font-bold";
+                                        $demand_title = "Bulk Demand Uploaded";
+                                        $click_action = "onclick=\"confirmDemand({$row['id']})\"";
+                                    } else {
+                                        $demand_icon  = "G";
+                                        $demand_class = "bg-green-100 text-green-600 font-bold";
+                                        $demand_title = "Demand Generated";
+                                        $click_action = "onclick=\"confirmDemand({$row['id']})\"";
+                                    }
+                                } else {
+                                    $demand_icon  = "N";
+                                    $demand_class = "bg-red-100 text-red-600 font-bold";
+                                    $demand_title = "ARV Not Generated";
+                                    $click_action = "onclick=\"generateRealArv({$row['id']})\"";
+                                }
+                                // ⭐ B, G, N LOGIC END ⭐
+
+                            ?>
                                 <tr class="border-b border-gray-200 table-row-hover" id="row-<?php echo $row['id']; ?>">
                                     <td class="table-cell"><?php echo $sr_no++; ?></td>
                                     <td class="table-cell"><?php echo htmlspecialchars($row['owner_name']); ?></td>
@@ -311,35 +401,122 @@ $queryStr = http_build_query($queryString);
                                     <td class="table-cell"><?php echo htmlspecialchars($row['ward']); ?></td>
                                     <td class="table-cell"><?php echo htmlspecialchars($row['new_holding']); ?></td>
                                     <td class="table-cell"><?php echo htmlspecialchars($row['property_type']); ?></td>
+                                    <td class="table-cell">
+                                        <?php
+                                        $row_status = strtolower(trim($row['verification_status'] ?? 'pending'));
+
+                                        if ($row_status === 'approved') {
+                                            $status_label = 'Approved';
+                                            $status_class = 'bg-green-100 text-green-700';
+                                            $status_icon = 'fa-check-circle';
+                                        } elseif ($row_status === 'reject') {
+                                            $status_label = 'Rejected';
+                                            $status_class = 'bg-red-100 text-red-700';
+                                            $status_icon = 'fa-times-circle';
+                                        } else {
+                                            $status_label = 'Pending';
+                                            $status_class = 'bg-yellow-100 text-yellow-700';
+                                            $status_icon = 'fa-clock-o';
+                                        }
+                                        ?>
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold <?= $status_class ?>">
+                                            <i class="fa <?= $status_icon ?>"></i>
+                                            <?= $status_label ?>
+                                        </span>
+                                    </td>
+
+                                    <!-- ⭐ NEW ADDED BY COLUMN ⭐ -->
+                                    <!-- <td class="table-cell">
+                                        <div class="font-medium text-slate-800"><?= htmlspecialchars($row['creator_name'] ?: 'Unknown User') ?></div>
+                                        <?php if (!empty($row['creator_role_name'])): ?>
+                                            <div class="text-[10px] inline-block bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-600 mt-0.5">
+                                                <?= htmlspecialchars($row['creator_role_name']) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td> -->
+
                                     <td class="table-cell"><?php echo date('d M, Y', strtotime(htmlspecialchars($row['created_at']))); ?></td>
 
                                     <td class="table-cell text-center sticky-action-column">
+                                        <?php
+                                        $row_status = strtolower(trim($row['verification_status'] ?? 'pending'));
+                                        if ($row_status === 'rejected') {
+                                            $row_status = 'reject';
+                                        }
+                                        ?>
                                         <div class="flex justify-center items-center space-x-1">
-                                            <a href="view_assesment_details.php?id=<?php echo htmlspecialchars($row['id']); ?>"
+
+                                            <!-- VIEW ASSESSMENT: ALWAYS AVAILABLE -->
+                                            <a href="view_assesment_details.php?id=<?= (int)$row['id']; ?>"
                                                 class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 hover:bg-yellow-200 transition"
-                                                title="View Details">
+                                                title="View Assessment Details">
                                                 <i class="fa fa-eye text-yellow-600 text-xs"></i>
                                             </a>
 
-                                            <a href="edit_assessment.php?id=<?php echo $row['id']; ?>"
-                                                class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 hover:bg-green-200 transition"
-                                                title="Edit Assesment Record.">
-                                                <i class="fa fa-pencil text-green-600 text-xs"></i>
+                                            <!-- ⭐ B, G, N ACTION BUTTON ⭐ -->
+                                            <a href="javascript:void(0);"
+                                                <?php echo $click_action; ?>
+                                                class="inline-flex items-center justify-center w-8 h-8 rounded-full <?php echo $demand_class; ?> hover:opacity-80 transition font-bold text-xs"
+                                                title="<?php echo $demand_title; ?>">
+                                                <?php echo $demand_icon; ?>
                                             </a>
 
-                                            <a href="property_map.php?lat=<?php echo urlencode($row['latitude'] ?? ''); ?>&lng=<?php echo urlencode($row['longitude'] ?? ''); ?>"
+                                            <!-- ASSESSMENT UPDATE HISTORY: ALWAYS AVAILABLE -->
+                                            <a href="assessment_history.php?assessment_id=<?= (int)$row['id']; ?>"
+                                                class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 hover:bg-purple-200 transition"
+                                                title="Assessment Update History">
+                                                <i class="fa fa-history text-purple-600 text-xs"></i>
+                                            </a>
+
+                                            <!-- VERIFICATION HISTORY / CURRENT WORKFLOW: ALWAYS AVAILABLE -->
+                                            <a href="verify-assessment.php?id=<?= (int)$row['id']; ?>"
+                                                class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 hover:bg-indigo-200 transition"
+                                                title="Verification History">
+                                                <i class="fa fa-check-circle text-indigo-600 text-xs"></i>
+                                            </a>
+
+                                            <!-- VERIFY: ONLY PENDING -->
+                                            <?php if ($row_status === 'pending'): ?>
+                                                <a href="verify-assessment.php?id=<?= (int)$row['id']; ?>"
+                                                    class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 hover:bg-blue-200 transition"
+                                                    title="Verify Assessment">
+                                                    <i class="fa fa-check text-blue-600 text-xs"></i>
+                                                </a>
+                                            <?php endif; ?>
+
+                                            <!-- EDIT: PENDING / REJECTED. APPROVED CAN BE EDITED BY ADMIN ONLY -->
+                                            <?php
+                                            $is_admin_user = (strtoupper(trim((string)$user_role)) === 'ADMIN');
+                                            $can_edit_row = (
+                                                $row_status === 'pending' ||
+                                                $row_status === 'reject' ||
+                                                ($row_status === 'approved' && $is_admin_user)
+                                            );
+                                            ?>
+                                            <?php if ($can_edit_row): ?>
+                                                <a href="edit_assessment.php?id=<?= (int)$row['id']; ?>"
+                                                    class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 hover:bg-green-200 transition"
+                                                    title="Edit Assessment">
+                                                    <i class="fa fa-pencil text-green-600 text-xs"></i>
+                                                </a>
+                                            <?php endif; ?>
+
+                                            <!-- PROPERTY LOCATION -->
+                                            <a href="property_map.php?lat=<?= urlencode($row['latitude'] ?? ''); ?>&lng=<?= urlencode($row['longitude'] ?? ''); ?>"
                                                 target="_blank"
                                                 class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition"
                                                 title="View Property Location">
                                                 <i class="fa fa-map-marker text-gray-600 text-xs"></i>
                                             </a>
 
+                                            <!-- DELETE -->
                                             <a href="javascript:void(0);"
                                                 class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 transition btn-delete-assessment"
-                                                data-id="<?php echo $row['id']; ?>"
-                                                title="Delete Assessment Record.">
+                                                data-id="<?= (int)$row['id']; ?>"
+                                                title="Delete Assessment Record">
                                                 <i class="fa fa-trash text-red-600 text-xs"></i>
                                             </a>
+
                                         </div>
                                     </td>
                                 </tr>
@@ -502,8 +679,75 @@ $queryStr = http_build_query($queryString);
             </div>
         </div>
 
+        <div id="arvModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onclick="closeArvModal()"></div>
+            <div class="relative bg-white/95 backdrop-blur-2xl w-full max-w-lg transform overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.2)] border border-white">
 
+                <div class="px-8 py-5 border-b border-slate-100/50 flex items-center justify-between bg-slate-50/40">
+                    <span class="flex items-center gap-2">
+                        <span class="h-2.5 w-2.5 rounded-full bg-[#10B981] animate-ping"></span>
+                        <h3 class="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-400">Official Confirmation</h3>
+                    </span>
+                    <button onclick="closeArvModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
 
+                <div class="p-8 flex items-start gap-6">
+                    <div class="flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-[#10B981]">
+                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                        </svg>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Finalize Tax Details?</h2>
+                        <p class="text-[14px] text-slate-500 leading-relaxed">
+                            You are about to **calculate and lock** the property tax for this year. Once confirmed, these details will be saved in the government records and a permanent bill ID will be generated.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="px-8 pb-8 flex items-center gap-4">
+                    <button onclick="closeArvModal()"
+                        class="flex-1 justify-center rounded-2xl bg-slate-100 px-6 py-4 text-sm font-bold text-slate-500 hover:bg-slate-200 transition-all active:scale-95">
+                        Go Back
+                    </button>
+
+                    <button onclick="confirmGenerateArv()"
+                        class="flex-[1.5] justify-center rounded-2xl bg-[#10B981] px-6 py-4 text-sm font-bold text-white shadow-[0_12px_24px_-6px_rgba(16,185,129,0.4)] hover:bg-[#0da371] hover:shadow-none transition-all active:scale-95">
+                        Yes, Generate Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function confirmDemand(id) {
+                if (confirm("Do you want to go to demand page?")) {
+                    window.open('generate-demand.php?id=' + id, '_blank');
+                }
+            }
+
+            let selectedAssessmentId = null;
+
+            function generateRealArv(id) {
+                selectedAssessmentId = id;
+                document.getElementById('arvModal').classList.remove('hidden');
+            }
+
+            function closeArvModal() {
+                selectedAssessmentId = null;
+                document.getElementById('arvModal').classList.add('hidden');
+            }
+
+            function confirmGenerateArv() {
+                if (!selectedAssessmentId) return;
+                window.location.href = 'arv/calculate_arv.php?id=' + selectedAssessmentId;
+            }
+        </script>
 
         <script>
             const filterBtn = document.getElementById("filterBtn");
@@ -518,7 +762,6 @@ $queryStr = http_build_query($queryString);
                 filterModal.classList.add("hidden");
             });
 
-            // Close on outside click
             window.addEventListener("click", (e) => {
                 if (e.target === filterModal) {
                     filterModal.classList.add("hidden");
@@ -527,7 +770,6 @@ $queryStr = http_build_query($queryString);
         </script>
 
         <script>
-            // profile menu
             const profileBtn = document.getElementById("profileBtn");
             const profileMenu = document.getElementById("profileMenu");
             profileBtn.addEventListener("click", () => {
@@ -559,7 +801,6 @@ $queryStr = http_build_query($queryString);
             dateRangeBtn.addEventListener('click', openDateModal);
             closeDateModal.addEventListener('click', closeDateModalFn);
 
-            // close on outside click
             window.addEventListener('click', (e) => {
                 if (e.target === dateRangeModal) {
                     closeDateModalFn();
@@ -572,7 +813,6 @@ $queryStr = http_build_query($queryString);
                 if (s && e && s <= e) {
                     downloadBtn.removeAttribute('disabled');
                     downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    // Build URL — we'll call export_excel.php with GET params
                     const url = `export_excel.php?start_date=${encodeURIComponent(s)}&end_date=${encodeURIComponent(e)}`;
                     downloadBtn.setAttribute('href', url);
                 } else {
@@ -590,14 +830,12 @@ $queryStr = http_build_query($queryString);
                     e.preventDefault();
                     alert('Please select a valid start and end date (start <= end).');
                 } else {
-                    // close modal once clicked so UX is tidy (download will start)
                     closeDateModalFn();
                 }
             });
         </script>
 
         <script>
-            // Open modal
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.btn-delete-assessment')) {
                     let id = e.target.closest('.btn-delete-assessment').dataset.id;
@@ -607,12 +845,10 @@ $queryStr = http_build_query($queryString);
                 }
             });
 
-            // Cancel button -> close modal
             document.getElementById('cancelDelete').addEventListener('click', function() {
                 document.getElementById('deleteRemarkModal').classList.add('hidden');
             });
 
-            // Form submit
             document.getElementById('deleteRemarkForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 let id = document.getElementById('delete_record_id').value;
@@ -637,11 +873,8 @@ $queryStr = http_build_query($queryString);
                     .then(data => {
                         if (data.status === 'ok') {
                             document.getElementById('deleteRemarkModal').classList.add('hidden');
-                            // Remove the row from the table (assuming you add a row ID)
                             let row = document.getElementById('row-' + id);
                             if (row) row.remove();
-
-                            // Reload the page to refresh pagination and counts after deletion
                             window.location.reload();
                         } else {
                             alert('Error: ' + data.msg);
@@ -651,15 +884,4 @@ $queryStr = http_build_query($queryString);
             });
         </script>
 
-
-        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-        <script src="js/mystyle.js"></script>
-
-
-        <footer class="text-center text-gray-500 text-sm mt-6">
-            © 2025 Deoria Nagar Parishad - All Rights Reserved.
-        </footer>
-    </main>
-</body>
-
-</html>
+        <?php include 'include/footer.php' ?>

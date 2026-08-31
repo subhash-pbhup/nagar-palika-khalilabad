@@ -1,0 +1,5 @@
+[2026-08-31 07:42:45] ARV BULK IMPORT STARTED: ARV_Tax_Template (3).csv
+[2026-08-31 07:42:45] [SUCCESS] Row 2: Uploaded successfully. Assessment ID: 3, Holding: KLB-W12-00001, Property ID: UP054501010000101
+[2026-08-31 07:42:45] [SUCCESS] Row 3: Uploaded successfully. Assessment ID: 4, Holding: KLB-W30-00001, Property ID: UP054501300000102
+[2026-08-31 07:42:45] [SUCCESS] Row 4: Uploaded successfully. Assessment ID: 5, Holding: KLB-W15-00001, Property ID: UP054501150000103
+[2026-08-31 07:42:45] FINISHED | Success: 3 | Skipped: 0 | Errors: 0

@@ -22,9 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $user_data      = null;
     $dashboard_path = "";
 
-    // ─────────────────────────────────────────────────────────
-    // STEP 1 — Check 'users' table (admin / general roles)
-    // ─────────────────────────────────────────────────────────
+
     $stmt = $conn->prepare(
         "SELECT id, username, password, role FROM users WHERE username = ? LIMIT 1"
     );

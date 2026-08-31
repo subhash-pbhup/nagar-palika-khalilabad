@@ -1,0 +1,29 @@
+query
+---------------------------------------------------------------------------------
+CREATE TABLE `surveyors` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
+  `password` VARCHAR(255) NOT NULL,
+  `profile_pic` VARCHAR(255) NULL,
+  `role` VARCHAR(50) NOT NULL DEFAULT 'surveyor',
+  `created_by` INT(11) NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`created_by`) REFERENCES `users`(`id`)
+);
+
+ALTER TABLE `surveyors`
+ADD `username` VARCHAR(50) NOT NULL UNIQUE AFTER `email`;
+
+
+CREATE TABLE `surveyor_wards` (
+  `surveyor_id` INT(11) NOT NULL,
+  `ward_no` VARCHAR(50) NOT NULL,
+  PRIMARY KEY (`surveyor_id`, `ward_no`),
+  FOREIGN KEY (`surveyor_id`) REFERENCES `surveyors`(`id`)
+);
+
+ALTER TABLE `assessments` ADD `surveyor_id` INT(11) NULL;
+ALTER TABLE `assessment_floors` ADD `surveyor_id` INT(11) NULL;
+ALTER TABLE `assessment_owners` ADD `surveyor_id` INT(11) NULL;
