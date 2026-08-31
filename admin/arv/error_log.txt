@@ -7,3 +7,4 @@
 [30-Aug-2026 13:29:23 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [30-Aug-2026 13:32:56 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [31-Aug-2026 07:00:18 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[31-Aug-2026 10:12:34 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147

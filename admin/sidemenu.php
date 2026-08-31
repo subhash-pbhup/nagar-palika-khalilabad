@@ -432,7 +432,7 @@ require_once "./include/permission.php";
 
                         </a>
 
-                        <a href="assessment_history.php"
+                        <!-- <a href="assessment_history.php"
                             class="sidebar-link-glass flex justify-between items-center group">
 
                             <span class="flex items-center">
@@ -447,7 +447,7 @@ require_once "./include/permission.php";
 
                             <div class="w-4"></div>
 
-                        </a>
+                        </a> -->
 
                     <?php endif; ?>
 

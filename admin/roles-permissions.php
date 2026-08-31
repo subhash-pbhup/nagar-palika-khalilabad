@@ -7,9 +7,9 @@ session_start();
 // LOGIN CHECK
 // =========================================================
 
-if (!isset($_SESSION['user_id'])) {
 
-    header("Location: login.php");
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'ADMIN') {
+    header("Location: index.php");
     exit;
 }
 
