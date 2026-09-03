@@ -1111,7 +1111,7 @@ try {
                 $environment =
                     'web';
 
-                $verification_status = "approved";
+                $verification_status = "pending";
 
                 /*
                  * assessments table has plot_area and building_type.

@@ -1,5 +1,0 @@
-[2026-08-27 14:02:31] ARV BULK IMPORT STARTED: ARV_Tax_Template (2).csv
-[2026-08-27 14:02:31] [SUCCESS] Row 2: Uploaded successfully. Assessment ID: 1, Holding: DEO-W12-00001, Property ID: UP054501010000101
-[2026-08-27 14:02:31] [SUCCESS] Row 3: Uploaded successfully. Assessment ID: 2, Holding: DEO-W30-00001, Property ID: UP054501300000102
-[2026-08-27 14:02:31] [SUCCESS] Row 4: Uploaded successfully. Assessment ID: 3, Holding: DEO-W15-00001, Property ID: UP054501150000103
-[2026-08-27 14:02:31] FINISHED | Success: 3 | Skipped: 0 | Errors: 0

@@ -274,7 +274,7 @@ if ($status === 'pending') {
 
         $historyCount = (int)($histCountRow['total'] ?? 0);
 
-        if ($historyCount === 0 && $currentVerificationRoleId !== $firstVerificationRoleId) {
+        if ($historyCount === 0 && $currentVerificationRoleId <= 0) {
             $repairStmt = $conn->prepare("UPDATE assessments SET current_verification_role_id = ?, updated_at = NOW() WHERE id = ? AND verification_status = 'pending'");
             if ($repairStmt) {
                 $repairStmt->bind_param("ii", $firstVerificationRoleId, $assessment_id);
@@ -291,7 +291,7 @@ if ($status === 'pending') {
 
 /*
 |--------------------------------------------------------------------------
-| PERMISSION
+| PERMISSION & BUTTON LOGIC FIX
 |--------------------------------------------------------------------------
 */
 $roleAlreadyActed = false;
@@ -310,8 +310,10 @@ if ($currentRoleId > 0) {
     }
 }
 
-$canReject = ($status === 'pending' && $user_id > 0 && !$roleAlreadyActed);
-$canForward = ($status === 'pending' && $currentRoleId > 0 && $currentVerificationRoleId === $currentRoleId && !$isAdmin && !$roleAlreadyActed);
+$isAssignedToCurrentUser = ($currentRoleId > 0 && $currentVerificationRoleId === $currentRoleId);
+
+$canReject = ($status === 'pending' && ($isAssignedToCurrentUser || $isAdmin) && !$roleAlreadyActed);
+$canForward = ($status === 'pending' && $isAssignedToCurrentUser && !$isAdmin && !$roleAlreadyActed);
 $canApprove = ($status === 'pending' && $isAdmin && $currentVerificationRoleId === ($roleIdMap['ADMIN'] ?? 0) && !$roleAlreadyActed);
 
 $nextRoleId = 0;
@@ -362,7 +364,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!in_array($action, ['verify', 'reject', 'approve'], true)) {
                 $error = "Invalid verification action.";
             } elseif ($remark === '') {
-                // BACKEND VALIDATION: Remark is strictly required for ALL actions
                 $error = "A remark is strictly required before you can perform this action.";
             } elseif ($action === 'reject' && !$canReject) {
                 $error = $roleAlreadyActed ? "Your role has already verified/forwarded this assessment and cannot reject it." : "You are not authorized to reject this assessment.";
@@ -381,11 +382,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($action === 'reject') {
                 $newStatus = 'reject';
-                $update = $conn->prepare("UPDATE assessments SET verification_status = ?, verified_by = ?, verified_at = NOW(), rejection_remark = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND verification_status = 'pending'");
-                $update->bind_param("sisis", $newStatus, $user_id, $remark, $user_id, $assessment_id);
+                // ✅ BUG FIX: Changed 'siiisi' to 'siisii' so the remark is properly treated as a string!
+                $update = $conn->prepare("UPDATE assessments SET verification_status = ?, current_verification_role_id = ?, verified_by = ?, verified_at = NOW(), rejection_remark = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND verification_status = 'pending'");
+                $update->bind_param("siisii", $newStatus, $currentRoleId, $user_id, $remark, $user_id, $assessment_id);
                 if (!$update->execute() || $update->affected_rows !== 1) throw new Exception("Assessment could not be rejected.");
                 $update->close();
-                addVerificationHistory($conn, $assessment_id, $user_id, $currentVerificationRoleId, max(1, $currentIndex + 1), 'rejected', $remark);
+
+                addVerificationHistory($conn, $assessment_id, $user_id, $currentRoleId, max(1, $currentIndex + 1), 'rejected', $remark);
                 $conn->commit();
                 header("Location: view-assesment.php?status=reject");
                 exit;
@@ -397,7 +400,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update->bind_param("siiii", $newStatus, $user_id, $user_id, $assessment_id, $currentVerificationRoleId);
                 if (!$update->execute() || $update->affected_rows !== 1) throw new Exception("Assessment could not be approved.");
                 $update->close();
-                addVerificationHistory($conn, $assessment_id, $user_id, $currentVerificationRoleId, max(1, $currentIndex + 1), 'approved', $remark);
+
+                addVerificationHistory($conn, $assessment_id, $user_id, $currentRoleId, max(1, $currentIndex + 1), 'approved', $remark);
                 $conn->commit();
                 header("Location: view-assesment.php?status=approved");
                 exit;
@@ -409,7 +413,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update->bind_param("siiiii", $newStatus, $nextRoleId, $user_id, $user_id, $assessment_id, $currentVerificationRoleId);
                 if (!$update->execute() || $update->affected_rows !== 1) throw new Exception("Assessment could not be forwarded.");
                 $update->close();
-                addVerificationHistory($conn, $assessment_id, $user_id, $currentVerificationRoleId, max(1, $currentIndex + 1), 'verified', $remark);
+
+                addVerificationHistory($conn, $assessment_id, $user_id, $currentRoleId, max(1, $currentIndex + 1), 'verified', $remark);
                 $conn->commit();
                 header("Location: view-assesment.php?status=pending");
                 exit;
@@ -441,6 +446,17 @@ if ($historyStmt) {
     $historyStmt->execute();
     $historyRows = $historyStmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $historyStmt->close();
+}
+
+$actualRejectorRoleId = null;
+$verifiedRoleIds = [];
+foreach ($historyRows as $h) {
+    if (strtolower($h['action']) === 'rejected') {
+        $actualRejectorRoleId = (int)$h['role_id'];
+    }
+    if (strtolower($h['action']) === 'verified') {
+        $verifiedRoleIds[] = (int)$h['role_id'];
+    }
 }
 ?>
 
@@ -592,7 +608,9 @@ if ($historyStmt) {
                     </div>
                     <div class="p-4 rounded-xl bg-slate-50">
                         <div class="detail-label">Current Verification Role</div>
-                        <div class="detail-value mt-2"><?= e($currentRequiredRole ?: 'Completed') ?></div>
+                        <div class="detail-value mt-2">
+                            <?= $status === 'reject' ? '<span class="text-red-600">✕ Rejected</span>' : e($currentRequiredRole ?: 'Completed') ?>
+                        </div>
                     </div>
                     <div class="p-4 rounded-xl bg-slate-50">
                         <div class="detail-label">Current User</div>
@@ -659,9 +677,9 @@ if ($historyStmt) {
                 <?php elseif ($status === 'pending'): ?>
                     <div class="mt-5 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800">
                         <i class="fa fa-lock"></i> This assessment is currently waiting for: <strong><?= e($currentRequiredRole ?: 'next verifier') ?></strong>.
-                        <?php if ($currentRoleId > 0 && $currentVerificationRoleId > 0 && $currentRoleId !== $currentVerificationRoleId): ?>
+                        <?php if (!$isAssignedToCurrentUser && $currentRoleId > 0): ?>
                             <div class="text-xs mt-2 text-yellow-700">
-                                You are logged in as <strong><?= e($currentRole) ?></strong>. The Verify & Forward button will appear when it reaches your role.
+                                You are logged in as <strong><?= e($currentRole) ?></strong>. The action buttons will appear when it reaches your role.
                             </div>
                         <?php endif; ?>
                     </div>
@@ -675,26 +693,49 @@ if ($historyStmt) {
                 <h2 class="text-lg font-bold text-slate-900 mb-2">Verification Workflow</h2>
                 <p class="text-xs text-slate-500 mb-5">Each role verifies and forwards to the next role. ADMIN gives final approval.</p>
                 <div class="space-y-5">
-                    <?php foreach ($verificationRoles as $index => $workflowRole): ?>
-                        <?php
+                    <?php
+                    $currentRoleIndex = -1;
+                    foreach ($verificationRoles as $idx => $role) {
+                        if ($role['id'] == $currentVerificationRoleId) {
+                            $currentRoleIndex = $idx;
+                            break;
+                        }
+                    }
+
+                    foreach ($verificationRoles as $index => $workflowRole):
                         $roleId = (int)$workflowRole['id'];
                         $role = $workflowRole['name'];
                         $isCurrent = ($roleId > 0 && $roleId === $currentVerificationRoleId);
-                        $roleWorkflowIndex = $rolePosition[$roleId] ?? -1;
                         $isLast = ($role === 'ADMIN');
 
                         if ($status === 'approved') {
                             $state = 'done';
                         } elseif ($status === 'reject') {
-                            $state = $isCurrent ? 'rejected' : ($currentIndex >= 0 && $roleWorkflowIndex < $currentIndex ? 'done' : 'normal');
+                            if ($actualRejectorRoleId !== null) {
+                                if ($roleId === $actualRejectorRoleId) {
+                                    $state = 'rejected';
+                                } elseif (in_array($roleId, $verifiedRoleIds)) {
+                                    $state = 'done';
+                                } else {
+                                    $state = 'normal'; // Waiting
+                                }
+                            } else {
+                                if ($isCurrent) {
+                                    $state = 'rejected';
+                                } elseif ($currentRoleIndex >= 0 && $index < $currentRoleIndex) {
+                                    $state = 'done';
+                                } else {
+                                    $state = 'normal';
+                                }
+                            }
                         } elseif ($isCurrent) {
                             $state = 'current';
-                        } elseif ($currentIndex >= 0 && $roleWorkflowIndex < $currentIndex) {
+                        } elseif ($currentRoleIndex >= 0 && $index < $currentRoleIndex) {
                             $state = 'done';
                         } else {
                             $state = 'normal';
                         }
-                        ?>
+                    ?>
                         <div class="flex items-start gap-3">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center
                                 <?php echo $state === 'done' ? 'bg-orange-100 text-orange-600' : ($state === 'current' ? 'bg-slate-900 text-white' : ($state === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500')); ?>">
@@ -736,7 +777,6 @@ if ($historyStmt) {
 </div>
 
 <script>
-    // JavaScript function to validate ALL actions
     function handleActionValidation(actionType, confirmMessage) {
         const remarkField = document.getElementById('verificationRemark');
         if (remarkField.value.trim() === '') {
@@ -747,7 +787,7 @@ if ($historyStmt) {
 
             alert(`Please enter a remark before ${actionName} the assessment.`);
             remarkField.focus();
-            return false; // Prevent form submission
+            return false;
         }
         return confirm(confirmMessage);
     }

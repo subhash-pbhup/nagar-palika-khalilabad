@@ -1,26 +1,6 @@
 <?php
 session_start();
-
 include("db.php");
-
-// ====================================================
-// ⭐ NEW: DISPLAY ERROR/SUCCESS MESSAGES FROM SESSION ⭐
-// यह कोड सुनिश्चित करेगा कि एरर पेज पर बड़े टेक्स्ट में दिखे।
-// ====================================================
-if (isset($_SESSION['update_error'])) {
-  // Show the error message clearly on the page
-  echo '<div style="background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; margin: 15px 0; border-radius: 5px; font-weight: bold; word-break: break-all;">';
-  echo 'UPDATE FAILED: ' . htmlspecialchars($_SESSION['update_error']);
-  echo '</div>';
-  unset($_SESSION['update_error']);
-}
-if (isset($_SESSION['update_success'])) {
-  // Show the success message
-  echo '<div style="background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; margin: 15px 0; border-radius: 5px; font-weight: bold;">';
-  echo 'SUCCESS: ' . htmlspecialchars($_SESSION['update_success']);
-  echo '</div>';
-  unset($_SESSION['update_success']);
-}
 
 // ----------------------------------------------------
 // 1. Fetch Assessment ID
@@ -30,6 +10,19 @@ $assessment_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($assessment_id === 0) {
   header("Location: view-assesment.php");
   exit;
+}
+
+$user_id = (int)($_SESSION['user_id'] ?? 0);
+
+// Fetch User Role ID for History
+$user_role_id = 0;
+$stmt_u = $conn->prepare("SELECT role_id FROM users WHERE id = ?");
+if ($stmt_u) {
+  $stmt_u->bind_param("i", $user_id);
+  $stmt_u->execute();
+  $res_u = $stmt_u->get_result()->fetch_assoc();
+  $user_role_id = (int)($res_u['role_id'] ?? 0);
+  $stmt_u->close();
 }
 
 // ----------------------------------------------------
@@ -47,6 +40,46 @@ if (!$assessment_data) {
   header("Location: view-assesment.php");
   exit;
 }
+
+// ====================================================
+// ⭐ AUTO-APPROVE BULK UPLOADS ON EDIT CLICK ⭐
+// ====================================================
+$auto_approve_msg = false; // इसे फ्लैग बना दिया है ताकि HTML सही जगह प्रिंट हो
+
+// चेक करें कि क्या यह असेसमेंट बल्क अपलोड से आया है
+$sql_bulk = "SELECT arv_status FROM property_arv_details WHERE assessment_id = ? LIMIT 1";
+$stmt_bulk = $conn->prepare($sql_bulk);
+$stmt_bulk->bind_param("i", $assessment_id);
+$stmt_bulk->execute();
+$res_bulk = $stmt_bulk->get_result()->fetch_assoc();
+$stmt_bulk->close();
+
+$is_bulk = ($res_bulk && strtolower(trim($res_bulk['arv_status'] ?? '')) === 'bulk');
+
+// अगर यह बल्क है और अभी भी 'pending' है, तो इसे तुरंत 'approved' कर दें
+if ($is_bulk && strtolower(trim($assessment_data['verification_status'] ?? '')) === 'pending') {
+
+  // डेटाबेस में स्टेटस अपडेट करें
+  $update_status = "UPDATE assessments SET verification_status = 'approved', current_verification_role_id = NULL, verified_by = ?, verified_at = NOW() WHERE id = ?";
+  $stmt_up = $conn->prepare($update_status);
+  $stmt_up->bind_param("ii", $user_id, $assessment_id);
+  $stmt_up->execute();
+  $stmt_up->close();
+
+  // वेरिफिकेशन हिस्ट्री में एंट्री डालें
+  $hist_sql = "INSERT INTO assessment_verifications (assessment_id, user_id, role_id, action, remark) VALUES (?, ?, ?, 'approved', 'Auto-approved bulk upload upon opening edit page')";
+  $stmt_hist = $conn->prepare($hist_sql);
+  $stmt_hist->bind_param("iii", $assessment_id, $user_id, $user_role_id);
+  $stmt_hist->execute();
+  $stmt_hist->close();
+
+  // लोकल वेरिएबल को अपडेट करें ताकि फॉर्म में सही डेटा दिखे
+  $assessment_data['verification_status'] = 'approved';
+  $assessment_data['current_verification_role_id'] = null;
+
+  $auto_approve_msg = true; // फ्लैग को ट्रू करें
+}
+// ====================================================
 
 // Current location / Property ID data
 $current_ward_id = (int)($assessment_data['ward_id'] ?? 0);
@@ -80,7 +113,6 @@ if ($mohalla_result) {
   $mohalla_data = $mohalla_result->fetch_all(MYSQLI_ASSOC);
 }
 
-
 // ----------------------------------------------------
 // 3. Fetch Owner Details
 // ----------------------------------------------------
@@ -105,7 +137,6 @@ foreach ($owners_data as $index => $owner) {
   ];
 }
 $owners_json = json_encode($js_owners);
-
 
 // ----------------------------------------------------
 // 4. Fetch Floor Details
@@ -150,7 +181,6 @@ function get_assessment_file_path($base_url, $holding_folder, $filename)
   return '';
 }
 
-// Helper function to show clean name
 function get_clean_display_name($db_filename, $title)
 {
   if (empty($db_filename)) return 'Choose new file';
@@ -166,7 +196,6 @@ $document_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
 $sup_doc1_path = get_assessment_file_path($image_base_url, $holding_folder, $assessment_data['supporting_doc_1'] ?? '');
 $sup_doc2_path = get_assessment_file_path($image_base_url, $holding_folder, $assessment_data['supporting_doc_2'] ?? '');
 $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $assessment_data['supporting_doc_3'] ?? '');
-
 ?>
 
 <!DOCTYPE html>
@@ -284,6 +313,28 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
   <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
   <main class="flex-1 p-6 space-y-8 overflow-y-auto">
 
+    <!-- ⭐ SUCCESS / ERROR MESSAGES NOW PLACED SAFELY INSIDE HTML BODY ⭐ -->
+    <?php if (isset($_SESSION['update_error'])): ?>
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg font-semibold">
+        <i class="fa fa-exclamation-circle"></i> UPDATE FAILED: <?= htmlspecialchars($_SESSION['update_error']) ?>
+      </div>
+      <?php unset($_SESSION['update_error']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['update_success'])): ?>
+      <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg font-semibold">
+        <i class="fa fa-check-circle"></i> SUCCESS: <?= htmlspecialchars($_SESSION['update_success']) ?>
+      </div>
+      <?php unset($_SESSION['update_success']); ?>
+    <?php endif; ?>
+
+    <?php if ($auto_approve_msg): ?>
+      <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg font-semibold">
+        <i class="fa fa-check-circle"></i> SUCCESS: This Bulk Uploaded Assessment has been automatically Approved!
+      </div>
+    <?php endif; ?>
+
+
     <form id="assessmentForm" action="update_assessment_records.php" onsubmit="return prepareFormSubmission()" method="post" enctype="multipart/form-data" class="space-y-8">
 
 
@@ -292,6 +343,8 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       <input type="hidden" name="owners_data" id="owners_data">
       <input type="hidden" name="floors_data" id="floors_data">
 
+      <!-- Hidden field to tell backend this is a bulk upload -->
+      <input type="hidden" name="is_bulk_upload" value="<?= $is_bulk ? 1 : 0 ?>">
 
       <input type="hidden" name="assessment_id" value="<?= htmlspecialchars($assessment_id) ?>">
 
@@ -998,7 +1051,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       const currentWardInput = document.getElementById('current_ward');
 
       mohallaSelect.innerHTML = '';
-      // mohallaSelect.innerHTML = '<option value="">--Select Mohalla--</option>';
       mohallaSelect.disabled = true;
       wardIdInput.value = wardId || '';
       currentWardInput.value = wardId || '';
@@ -1151,7 +1203,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
     const f_usage = document.getElementById('f_usage');
     const f_non_residential_group = document.getElementById('f_non_residential_group');
     const f_property_name = document.getElementById('f_property_name');
-    // Date Fields
     const f_date_from = document.getElementById('f_date_from');
     const f_date_to = document.getElementById('f_date_to');
 
@@ -1232,7 +1283,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
     function openFloorModal(tempId = null) {
       floorModal.classList.add('open');
 
-      // Reset form
       f_floor_no.value = '';
       f_construction.value = '';
       f_occupancy.value = '';
@@ -1289,7 +1339,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
         return;
       }
 
-      // Check whether this is an existing floor or a new floor.
       const editId = document.getElementById('f_edit_id').value;
       const editTempId = editId ? parseInt(editId, 10) : 0;
       const existingFloor = editTempId ?
@@ -1297,11 +1346,7 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
         null;
 
       const newFloor = {
-        // IMPORTANT:
-        // Existing floor keeps its real DB ID.
-        // New floor gets db_id = 0.
         db_id: existingFloor ? Number(existingFloor.db_id || 0) : 0,
-
         floor_no: f_floor_no.value.trim(),
         date_from: f_date_from.value,
         date_to: f_date_to.value,
@@ -1315,10 +1360,7 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       };
 
       if (existingFloor) {
-
-        // Preserve temp_id and DB id while updating the frontend object.
         floors = floors.map(function(floor) {
-
           if (Number(floor.temp_id) === editTempId) {
             return {
               ...floor,
@@ -1327,28 +1369,16 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
               db_id: Number(floor.db_id || 0)
             };
           }
-
           return floor;
         });
-
       } else {
-
-        // New floor: frontend temp ID + DB ID 0.
         newFloor.temp_id = floorTempIdCounter++;
         newFloor.db_id = 0;
-
         floors.push(newFloor);
       }
 
       closeFloorModal();
       renderFloorsTable();
-    }
-
-    function deleteFloor(tempId) {
-      if (confirm('Are you sure you want to delete this floor record?')) {
-        floors = floors.filter(f => f.temp_id !== tempId);
-        renderFloorsTable();
-      }
     }
 
     function renderFloorsTable() {
@@ -1383,7 +1413,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
           deleteCell.innerHTML = `<button type="button" onclick="deleteFloor(${floor.temp_id})" class="text-red-600 hover:text-red-800 p-1"><i class="fa fa-trash"></i></button>`;
         });
       }
-      // Keep the real DB ID in the JSON sent to PHP.
       document.getElementById('floors_json').value = JSON.stringify(
         floors.map(function(floor) {
           return {
@@ -1405,7 +1434,7 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
     }
 
     // -----------------------------------------------------------------
-    // OWNER LOGIC (UPDATED FOR UNIQUENESS CHECK WITH DB)
+    // OWNER LOGIC
     // -----------------------------------------------------------------
 
     function renderOwnersTable() {
@@ -1471,7 +1500,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       document.getElementById('o_edit_temp_id').value = '';
       document.getElementById('o_edit_db_id').value = '0';
 
-      // Clear previous errors
       document.getElementById('o_mobile_error').textContent = '';
       document.getElementById('o_email_error').textContent = '';
       document.getElementById('saveOwnerBtn').disabled = false;
@@ -1507,20 +1535,15 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       document.getElementById('ownerModal').classList.remove('open');
     }
 
-    // --- CHECK OWNER UNIQUENESS (Updated Function using check_owner_uniqueness_edit.php) ---
     async function checkOwnerUniqueness(field) {
       const value = document.getElementById('o_' + field).value.trim();
       const errorSpan = document.getElementById('o_' + field + '_error');
-      const excludeId = document.getElementById('o_edit_db_id').value; // Pass DB ID to exclude self
+      const excludeId = document.getElementById('o_edit_db_id').value;
       const saveBtn = document.getElementById('saveOwnerBtn');
 
-      // Reset Error
       errorSpan.textContent = '';
-
-      // Allow empty email if optional, but Mobile is mandatory
       if (value === '') return true;
 
-      // Disable button while checking
       saveBtn.disabled = true;
       errorSpan.textContent = 'Checking...';
       errorSpan.className = 'text-blue-500 text-xs';
@@ -1529,9 +1552,8 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
         const formData = new FormData();
         formData.append('field', field);
         formData.append('value', value);
-        formData.append('exclude_id', excludeId); // Key Logic Change Here
+        formData.append('exclude_id', excludeId);
 
-        // Call the NEW edit-specific file
         const response = await fetch('check_owner_uniqueness_edit.php', {
           method: 'POST',
           body: formData
@@ -1574,7 +1596,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
         return;
       }
 
-      // Final Uniqueness Check before Save
       const isMobileUnique = await checkOwnerUniqueness('mobile');
       if (!isMobileUnique) {
         alert('Mobile number already exists.');
@@ -1615,29 +1636,49 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       renderOwnersTable();
     }
 
+    // =================================================================
+    // ⭐ DELETION LOGIC (Soft Delete Tracker) ⭐
+    // =================================================================
+    let deletedOwnerIds = [];
+    let deletedFloorIds = [];
+
     function deleteOwner(tempId) {
       if (confirm('Are you sure you want to delete this owner record?')) {
+        const deletedOwner = owners.find(o => o.temp_id === tempId);
+        if (deletedOwner && deletedOwner.db_id > 0) {
+          deletedOwnerIds.push(deletedOwner.db_id);
+        }
         owners = owners.filter(o => o.temp_id !== tempId);
         renderOwnersTable();
       }
     }
 
+    function deleteFloor(tempId) {
+      if (confirm('Are you sure you want to delete this floor record?')) {
+        const deletedFloor = floors.find(f => f.temp_id === tempId);
+        if (deletedFloor && deletedFloor.db_id > 0) {
+          deletedFloorIds.push(deletedFloor.db_id);
+        }
+        floors = floors.filter(f => f.temp_id !== tempId);
+        renderFloorsTable();
+      }
+    }
+
+
     // -----------------------------------------------------------------
-    // INITIALIZATION
+    // INITIALIZATION & SUBMIT
     // -----------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
       populateNonResGroupDropdown();
       renderOwnersTable();
       renderFloorsTable();
 
-      // Preview Images
       document.querySelectorAll('.file-input-with-preview').forEach(input => {
         input.addEventListener('change', function(e) {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-              // Find the image element in the same container
               const container = input.closest('div');
               const img = container.querySelector('img');
               if (img) {
@@ -1651,59 +1692,6 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
       });
     });
 
-
-
-    // =================================================================
-    // ⭐ NEW GLOBAL ARRAYS TO TRACK DELETED DB RECORDS (Soft Delete के लिए आवश्यक) ⭐
-    // =================================================================
-
-    // इन Arrays में उन owners/floors की DB IDs आएंगी जिन्हें फ्रंटएंड से डिलीट किया गया है 
-    // और जो पहले से Database में मौजूद थे (db_id > 0 वाले)
-    let deletedOwnerIds = [];
-    let deletedFloorIds = [];
-
-
-    // =================================================================
-    // ⭐ UPDATED DELETION FUNCTIONS ⭐
-    // =================================================================
-
-    function deleteOwner(tempId) {
-      if (confirm('Are you sure you want to delete this owner record?')) {
-        const deletedOwner = owners.find(o => o.temp_id === tempId);
-
-        // अगर रिकॉर्ड पहले से DB में मौजूद था (db_id > 0), तो उसकी ID को डिलीट लिस्ट में जोड़ें
-        // यह ID ही Backend में Soft Delete के लिए उपयोग होगी।
-        if (deletedOwner && deletedOwner.db_id > 0) {
-          deletedOwnerIds.push(deletedOwner.db_id);
-        }
-
-        // लोकल array से हटाएँ (Frontend से गायब करें)
-        owners = owners.filter(o => o.temp_id !== tempId);
-        renderOwnersTable();
-      }
-    }
-
-    function deleteFloor(tempId) {
-      if (confirm('Are you sure you want to delete this floor record?')) {
-        const deletedFloor = floors.find(f => f.temp_id === tempId);
-
-        // अगर रिकॉर्ड पहले से DB में मौजूद था (db_id > 0), तो उसकी ID को डिलीट लिस्ट में जोड़ें
-        if (deletedFloor && deletedFloor.db_id > 0) {
-          deletedFloorIds.push(deletedFloor.db_id);
-        }
-
-        // लोकल array से हटाएँ (Frontend से गायब करें)
-        floors = floors.filter(f => f.temp_id !== tempId);
-        renderFloorsTable();
-      }
-    }
-
-
-    // =================================================================
-    // ⭐ FORM SUBMISSION PREPARATION FUNCTION (Must be called before form submission) ⭐
-    // =================================================================
-
-    // सुनिश्चित करें कि यह फंक्शन आपके फॉर्म सबमिशन हैंडलर (जैसे onsubmit="return prepareFormSubmission()") में कॉल हो रहा है।
     function prepareFormSubmission() {
       const wardId = document.getElementById('ward_id').value;
       const mohallaId = document.getElementById('mohalla_id').value;
@@ -1712,13 +1700,11 @@ $sup_doc3_path = get_assessment_file_path($image_base_url, $holding_folder, $ass
         alert('Please select Ward.');
         return false;
       }
-
       if (!mohallaId) {
         alert('Please select Mohalla.');
         return false;
       }
 
-      // Keep legacy ward field synchronized.
       document.getElementById('current_ward').value = wardId;
 
       document.getElementById('owners_data').value = JSON.stringify(owners);

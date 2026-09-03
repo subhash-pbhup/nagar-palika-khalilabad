@@ -63,10 +63,11 @@ $types = "";
 $is_admin = in_array(strtoupper(trim($user_role)), ['ADMIN', 'SUPER ADMIN', 'ADMINISTRATOR']);
 
 if (!$is_admin) {
-    // Non-admins see records currently assigned to their role.
-    // They will NOT see records they created while they are pending with a senior/next role.
-    // They will only see their created records again once fully approved or rejected.
-    $conditions[] = "(a.current_verification_role_id = ? OR (a.created_by = ? AND a.verification_status != 'pending'))";
+    // Non-admins see records if:
+    // 1. It is currently assigned to their role for verification.
+    // OR
+    // 2. They are the original creator of the record (they can ALWAYS see it).
+    $conditions[] = "(a.current_verification_role_id = ? OR a.created_by = ?)";
     $params[] = $user_role_id;
     $params[] = $user_id;
     $types .= "ii";
@@ -396,11 +397,11 @@ $queryStr = http_build_query($queryString);
                             ?>
                                 <tr class="border-b border-gray-200 table-row-hover" id="row-<?php echo $row['id']; ?>">
                                     <td class="table-cell"><?php echo $sr_no++; ?></td>
-                                    <td class="table-cell"><?php echo htmlspecialchars($row['owner_name']); ?></td>
-                                    <td class="table-cell"><?php echo htmlspecialchars($row['year_of_assessment']); ?></td>
-                                    <td class="table-cell"><?php echo htmlspecialchars($row['ward']); ?></td>
-                                    <td class="table-cell"><?php echo htmlspecialchars($row['new_holding']); ?></td>
-                                    <td class="table-cell"><?php echo htmlspecialchars($row['property_type']); ?></td>
+                                    <td class="table-cell"><?php echo htmlspecialchars($row['owner_name'] ?? ''); ?></td>
+                                    <td class="table-cell"><?php echo htmlspecialchars($row['year_of_assessment'] ?? ''); ?></td>
+                                    <td class="table-cell"><?php echo htmlspecialchars($row['ward'] ?? ''); ?></td>
+                                    <td class="table-cell"><?php echo htmlspecialchars($row['new_holding'] ?? ''); ?></td>
+                                    <td class="table-cell"><?php echo htmlspecialchars($row['property_type'] ?? ''); ?></td>
                                     <td class="table-cell">
                                         <?php
                                         $row_status = strtolower(trim($row['verification_status'] ?? 'pending'));
@@ -425,7 +426,7 @@ $queryStr = http_build_query($queryString);
                                         </span>
                                     </td>
 
-                                    <!-- ⭐ NEW ADDED BY COLUMN ⭐ -->
+                                    <!-- ⭐ ADDED BY COLUMN (Commented out per original file) ⭐ -->
                                     <!-- <td class="table-cell">
                                         <div class="font-medium text-slate-800"><?= htmlspecialchars($row['creator_name'] ?: 'Unknown User') ?></div>
                                         <?php if (!empty($row['creator_role_name'])): ?>
@@ -475,8 +476,11 @@ $queryStr = http_build_query($queryString);
                                                 <i class="fa fa-check-circle text-indigo-600 text-xs"></i>
                                             </a>
 
-                                            <!-- VERIFY: ONLY PENDING -->
-                                            <?php if ($row_status === 'pending'): ?>
+                                            <!-- VERIFY: ONLY PENDING AND CURRENT ASSIGNED ROLE -->
+                                            <?php
+                                            $can_verify = ($row_status === 'pending' && $row['current_verification_role_id'] == $user_role_id && !$is_admin);
+                                            ?>
+                                            <?php if ($can_verify): ?>
                                                 <a href="verify-assessment.php?id=<?= (int)$row['id']; ?>"
                                                     class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 hover:bg-blue-200 transition"
                                                     title="Verify Assessment">

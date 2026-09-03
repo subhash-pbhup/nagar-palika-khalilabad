@@ -1,5 +1,0 @@
-[2026-08-27 13:58:43] ARV BULK IMPORT STARTED: ARV_Tax_Template (3).csv
-[2026-08-27 13:58:43] [ERROR] Row 2: The number of elements in the type definition string must match the number of bind variables
-[2026-08-27 13:58:43] [ERROR] Row 3: The number of elements in the type definition string must match the number of bind variables
-[2026-08-27 13:58:43] [ERROR] Row 4: The number of elements in the type definition string must match the number of bind variables
-[2026-08-27 13:58:43] FINISHED | Success: 0 | Skipped: 0 | Errors: 3
