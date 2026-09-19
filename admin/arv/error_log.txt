@@ -9,3 +9,30 @@
 [31-Aug-2026 07:00:18 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [31-Aug-2026 10:12:34 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
 [31-Aug-2026 09:25:54 UTC] PHP Notice:  Only variables should be passed by reference in /home/u561121976/domains/techsans.in/public_html/gov-products/nagar-palika-khalilabad/admin/arv/store_arv.php on line 147
+[15-Sep-2026 05:07:09 UTC] PHP Notice:  Only variables should be passed by reference in /home/u561121976/domains/techsans.in/public_html/gov-products/nagar-palika-khalilabad/admin/arv/store_arv.php on line 147
+[15-Sep-2026 05:13:48 UTC] PHP Notice:  Only variables should be passed by reference in /home/u561121976/domains/techsans.in/public_html/gov-products/nagar-palika-khalilabad/admin/arv/store_arv.php on line 147
+[15-Sep-2026 06:25:47 UTC] PHP Notice:  Only variables should be passed by reference in /home/u561121976/domains/techsans.in/public_html/gov-products/nagar-palika-khalilabad/admin/arv/store_arv.php on line 147
+[18-Sep-2026 12:52:47 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[19-Sep-2026 07:14:09 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[19-Sep-2026 07:55:31 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[19-Sep-2026 09:51:01 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[19-Sep-2026 10:36:51 Europe/Berlin] PHP Fatal error:  Uncaught TypeError: print_r(): Argument #2 ($return) must be of type bool, array given in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php:12
+Stack trace:
+#0 C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php(12): print_r(Array, Array)
+#1 {main}
+  thrown in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 12
+[19-Sep-2026 10:37:27 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 150
+[19-Sep-2026 10:43:17 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 150
+[19-Sep-2026 10:43:17 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php:146
+Stack trace:
+#0 C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php(146): mysqli_stmt->bind_param('issssddddddds', 1, '09552011000001R', 'B5522526000001', '2026-09-19', NULL, 10, 353.76, 3537.6, 10, 353.76, 707.52, 'GBW')
+#1 {main}
+  thrown in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 146
+[19-Sep-2026 10:44:23 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 151
+[19-Sep-2026 10:44:23 Europe/Berlin] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php:147
+Stack trace:
+#0 C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php(147): mysqli_stmt->bind_param('issssddddddds', 1, '09552011000001R', 'B5522526000001', '2026-09-19', '2024-25', 10, 353.76, 3537.6, 10, 353.76, 707.52, 'GBW')
+#1 {main}
+  thrown in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 147
+[19-Sep-2026 10:48:45 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 153
+[19-Sep-2026 11:04:16 Europe/Berlin] PHP Notice:  Only variables should be passed by reference in C:\xampp\htdocs\nagar-palika-khalilabad\admin\arv\store_arv.php on line 150

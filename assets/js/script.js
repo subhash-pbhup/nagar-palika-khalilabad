@@ -1,5 +1,5 @@
 /* ============================================================
-   NAGAR PALIKA PARISHAD DEORIA — script.js
+   NAGAR PALIKA PARISHAD Khalilabad — script.js
    ============================================================ */
 
 'use strict';
@@ -304,5 +304,5 @@ document.head.appendChild(rippleStyle);
 
 
 /* ── 13. PAGE INIT COMPLETE ── */
-console.log('%c Nagar Palika Parishad Deoria 🏛️', 'color:#FF6B00;font-weight:700;font-size:14px;');
+console.log('%c Nagar Palika Parishad Khalilabad 🏛️', 'color:#FF6B00;font-weight:700;font-size:14px;');
 console.log('%c Official Website Loaded Successfully', 'color:#128807;font-size:12px;');

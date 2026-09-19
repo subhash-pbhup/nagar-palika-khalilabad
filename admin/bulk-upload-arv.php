@@ -807,28 +807,6 @@ include "./include/header.php";
             </div>
 
         </div>
-
-
-
-        <!-- FOOTER -->
-        <footer class="text-center mt-8">
-
-            <p class="text-xs font-medium text-slate-400/80">
-
-                © 2025 Deoria Nagar Parishad
-
-                <span class="mx-2">•</span>
-
-                <span class="text-slate-500">
-
-                    Property Tax System v1.0
-
-                </span>
-
-            </p>
-
-        </footer>
-
     </div>
 
 </main>

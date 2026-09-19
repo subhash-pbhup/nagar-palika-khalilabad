@@ -460,7 +460,7 @@ $default_image_url = 'uploads/default_property.png';
     </div>
 
     <footer class="text-center text-gray-500 text-sm mt-12 p-4">
-        © 2025 Deoria Nagar Parishad - All Rights Reserved.
+        © 2025 Khalilabad Nagar Parishad - All Rights Reserved.
     </footer>
 
 </main>

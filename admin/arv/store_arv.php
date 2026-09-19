@@ -71,6 +71,8 @@ $total_arv  = $data['total_arv'];
 $house_tax  = $data['house_tax_arv'];
 $water_tax  = $data['water_tax_arv'];
 $total_tax  = $data['total_tax'];
+$financial_year  = $data['financial_year'];
+
 
 $conn->begin_transaction();
 
@@ -130,18 +132,19 @@ try {
 
     $stmt = $conn->prepare("
         INSERT INTO property_arv_details
-        (assessment_id, property_id, bill_no, bill_date,
+        (assessment_id,financial_year, property_id, bill_no, bill_date,
          house_tax_arv, house_tax_rate, house_tax_amount,
          water_tax_arv, water_tax_rate, water_tax_amount,
          total_tax, arv_status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     ");
 
     $status = "GBW";
 
     $stmt->bind_param(
-        "isssddddddds",
+        "issssddddddds",
         $assessment_id,
+        $financial_year,
         $property_id,
         $bill_no,
         date('Y-m-d'),

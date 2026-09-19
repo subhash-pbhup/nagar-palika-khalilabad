@@ -8,7 +8,7 @@
   <meta name="description" content="Official website of Nagar Palika Parishad Khalilabad, Uttar Pradesh. Citizen services, e-services, officer directory and contact." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="icon" type="image/x-icon" href="assets/images/logo/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="admin/img/favicon.ico">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
@@ -60,7 +60,7 @@
 
       <div class="header-ctas">
         <a href="admin" class="btn-outline-sm">Official Login</a>
-        <a href="#" class="btn-filled-sm">Citizen Login</a>
+        <a href="up-consumerlist.php" class="btn-filled-sm">Citizen Login</a>
       </div>
 
       <button class="hamburger" id="hamburger" aria-label="Open menu">

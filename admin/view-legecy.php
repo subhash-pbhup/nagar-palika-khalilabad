@@ -47,7 +47,7 @@ if ($stmt) $stmt->close();
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>View Legacy Property - Deoria Nagar Palika</title>
+<title>View Legacy Property - Khalilabad Nagar Palika</title>
 <link href="favicon.png" rel="icon">
 <link href="css/mystyle.css" rel="stylesheet">
 <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
@@ -199,7 +199,7 @@ tailwind.config = {
 
             <div id="tab-content-basic" class="">
                 <div class="frame-wrap">
-                    <iframe id="a4frame" name="a4frame" title="Deoria A4 Preview" sandbox="allow-same-origin allow-scripts"></iframe>
+                    <iframe id="a4frame" name="a4frame" title="Khalilabad A4 Preview" sandbox="allow-same-origin allow-scripts"></iframe>
 
                     <div class="mt-4 flex justify-end items-center space-x-3">
                         <button id="payNowBtn" class="oc-submit">Pay Now</button>
@@ -215,7 +215,7 @@ tailwind.config = {
                             <i class="fa fa-pie-chart text-orange-500 text-2xl"></i>
                         </div>
                         <div>
-                            <h3 class="text-2xl font-semibold">Deoria Other Charges</h3>
+                            <h3 class="text-2xl font-semibold">Khalilabad Other Charges</h3>
                             <p class="text-sm text-gray-500">Add miscellaneous charges to the property demand.</p>
                         </div>
                     </div>
@@ -259,7 +259,7 @@ tailwind.config = {
         </div>
 
         <footer class="text-center text-gray-500 text-sm mt-6">
-            © 2025 Deoria Nagar Palika Parishad - All Rights Reserved.
+            © 2025 Khalilabad Nagar Palika Parishad - All Rights Reserved.
         </footer>
     </main>
 </div>
@@ -299,20 +299,20 @@ tailwind.config = {
         </div>
     </div>
 </div>
-<script id="deoria-a4-template" type="text/template">
+<script id="Khalilabad-a4-template" type="text/template">
 <!doctype html>
 <html lang="hi">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Deoria Demand Bill (A4)</title>
+<title>Khalilabad Demand Bill (A4)</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 <style>
 /* Reset and A4 specific styles */
 body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial, sans-serif; }
 .a4-wrap { width: 1000px; max-width:100%; margin:18px auto; background:#fff; border:2px solid #111; padding:18px; box-sizing:border-box; }
 .center { text-align:center; }
-.deoria-title { color:#0b6b53; font-weight:700; font-size:28px; }
+.Khalilabad-title { color:#0b6b53; font-weight:700; font-size:28px; }
 .sub-title { color:#0b6b53; font-weight:600; font-size:18px; margin-top:4px; }
 .muted { color:#4b5563; }
 .info-block { display:flex; gap:20px; align-items:flex-start; margin-top:18px; }
@@ -332,7 +332,7 @@ body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial,
 /* Responsive adjustments for the iframe view */
 @media (max-width: 768px) {
     .a4-wrap { padding: 10px; }
-    .deoria-title { font-size: 20px; }
+    .Khalilabad-title { font-size: 20px; }
     .sub-title { font-size: 14px; }
     .info-block { flex-direction: column; gap: 10px; }
     .left-col, .right-col { width: 100%; }
@@ -345,9 +345,9 @@ body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial,
   <div class="a4-wrap" role="document">
     <div class="center">
       <div style="display:flex; justify-content:center; align-items:center; gap:20px;">
-        <img src="logo.png" alt="Deoria Logo" style="height:70px; width:auto;" onerror="this.style.display='none'">
+        <img src="logo.png" alt="Khalilabad Logo" style="height:70px; width:auto;" onerror="this.style.display='none'">
         <div>
-          <div class="deoria-title">नगर पालिका परिषद देवरिया</div>
+          <div class="Khalilabad-title">नगर पालिका परिषद देवरिया</div>
           <div class="sub-title">संपत्तिकर डिमांड बिल (2025-26)</div>
         </div>
         <img src="up-logo.png" alt="Govt Emblem" style="height:70px; width:auto;" onerror="this.style.display='none'">
@@ -410,7 +410,7 @@ body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial,
           <li style="margin-bottom:6px;">*इस बिल पर अंकित अवशेष मांग की धनराशि मा० कार्यकारिणी समिति की बैठक दिनांक 05/12/2023 में स्वीकृत प्रस्ताव के क्रम में शासन से प्राप्त होने वाले आदेश की प्रत्याशा में है.</li>
           <li style="margin-bottom:6px;">1.जी०आई०एस० सर्वेक्षण के आधार पर पुनरीक्षण प्रक्रिया पूर्ण होने के उपरांत अंतर धनराशि नियमानुसार प्रभावी तिथि से अनिवार्य रूप से देय होगी.</li>
           <li style="margin-bottom:6px;">2.वित्तीय वर्ष 2024-25 के अवशेष मांग (ARREAR DEMAND) पर भुगतान किये जाने की तिथि तक 1% (एक फीसदी) प्रतिमाह की दर से साधारण ब्याज देय होगा </li>
-          <li style="margin-bottom:6px;">3.आप अपने संपत्ति कर बिल का आंनलाइन भुगतान deoria.upmunicipal.com वेबसाइट के माध्यम से कर सकते हैं |</li>
+          <li style="margin-bottom:6px;">3.आप अपने संपत्ति कर बिल का आंनलाइन भुगतान Khalilabad.upmunicipal.com वेबसाइट के माध्यम से कर सकते हैं |</li>
           <li style="margin-bottom:6px;">4.संपत्ति कर की अवशेष बकाया धनराशि पर नियमानुसार 12 प्रतिशत साधारण ब्याज देय होगा |</li>
           <li style="margin-bottom:6px;">5.इस बिल के संबंध मे कोई शिकायत है तो देय तिथि के अंदर संपत्ति कर विभाग,नगर निगम,गोरखपुर को भेजना आवश्यक है,बिल का भुगतान देय तिथि तक किया जाना अनिवार्य है |</li>
           <li style="margin-bottom:6px;">6.किसी भवन के संबंध मे भुगतान संबंधी कोई विवाद न्यायालय मे विचाराधीन होने के कर कारण स्टे है तो उस परिस्थिति मे विवरण सहित नगर आयुक्त नगर निगम, गोरखपुर को लिखित सूचित करें</li>
@@ -433,7 +433,7 @@ body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial,
     </div>
 
     <div style="text-align:center; margin-top:10px; font-size:12px; color:#6b7280;">
-      Nagar Palika Parishad Deoria
+      Nagar Palika Parishad Khalilabad
     </div>
   </div>
 
@@ -453,7 +453,7 @@ body { margin:0; padding:0; background:#f3f4f6; font-family: 'Noto Sans', Arial,
     // QR code generation for the A4
     try {
       var qrc = new QRCode(document.getElementById("qrcode"), {
-        text: "https://deoria.example.com/pay?prop=01020001-T",
+        text: "https://Khalilabad.example.com/pay?prop=01020001-T",
         width: 120, height: 120
       });
     } catch(e){ console.warn(e); }
@@ -500,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Inject A4 template into iframe via srcdoc
     const iframe = document.getElementById('a4frame');
-    const template = document.getElementById('deoria-a4-template');
+    const template = document.getElementById('Khalilabad-a4-template');
     if (iframe && template) {
         // set srcdoc to the template's innerHTML
         iframe.srcdoc = template.innerHTML;

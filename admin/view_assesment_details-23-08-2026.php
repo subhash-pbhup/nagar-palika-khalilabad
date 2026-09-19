@@ -80,7 +80,7 @@ $default_image_url = 'uploads/default_property.png';
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>Property Details - Deoria Property Tax</title>
+    <title>Property Details - Khalilabad Property Tax</title>
     <link href="favicon.png" rel="icon" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -471,7 +471,7 @@ $default_image_url = 'uploads/default_property.png';
         <?php endif; ?>
         
         <footer class="text-center text-gray-500 text-sm mt-12 p-4">
-            © 2025 Deoria Nagar Parishad - All Rights Reserved.
+            © 2025 Khalilabad Nagar Parishad - All Rights Reserved.
         </footer>
         
     </main>

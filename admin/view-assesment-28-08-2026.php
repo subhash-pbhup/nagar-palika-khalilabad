@@ -172,7 +172,7 @@ $queryStr = http_build_query($queryString);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Assessments - Deoria Property Tax</title>
+    <title>View Assessments - Khalilabad Property Tax</title>
     <link href="img/favicon.ico" rel="icon">
     <link href='css/mystyle.css' rel='stylesheet'>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
@@ -662,7 +662,7 @@ $queryStr = http_build_query($queryString);
 
 
         <footer class="text-center text-gray-500 text-sm mt-6">
-            © 2025 Deoria Nagar Parishad - All Rights Reserved.
+            © 2025 Khalilabad Nagar Parishad - All Rights Reserved.
         </footer>
     </main>
 </body>

@@ -63,7 +63,7 @@ $start_sr_no = $offset;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Surveyors - Deoria Property Tax</title>
+    <title>View Surveyors - Khalialabad Property Tax</title>
     <link href="img/favicon.ico" rel="icon">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -294,7 +294,7 @@ $start_sr_no = $offset;
         </div>
 
         <footer class="text-center text-gray-500 text-sm mt-6">
-            © 2025 Deoria Nagar Parishad - All Rights Reserved.
+            © 2025 Khalialabad Nagar Parishad - All Rights Reserved.
         </footer>
     </main>
 

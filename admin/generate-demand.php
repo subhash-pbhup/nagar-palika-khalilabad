@@ -60,208 +60,657 @@ $total_due = number_format($calc['total_demand'] ?? 0, 2);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nagar Palika Parishad Khalilabad - Demand <?= $prop_id ?></title>
+    <title>नगर पालिका परिषद खलीलाबाद - Demand <?= htmlspecialchars($prop_id) ?></title>
     <link href="img/favicon.ico" rel="icon">
-    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Hind:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap');
+
+        :root {
+            --navy: #0b1f4d;
+            --navy-2: #132e63;
+            --orange: #f28c00;
+            --orange-light: #fff3df;
+            --cream: #fffaf2;
+            --border: #d9c9ad;
+            --text: #263238;
+            --muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: 'Hind', sans-serif;
+            margin: 0;
+            padding: 24px;
+            background: #eef1f5;
+            color: var(--text);
+            font-family: 'Hind', Arial, sans-serif;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: #fff;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #d7dce4;
+            box-shadow: 0 12px 35px rgba(11, 31, 77, .14);
+        }
+
+        .top-strip {
+            height: 8px;
+            background: linear-gradient(90deg, var(--navy) 0 72%, var(--orange) 72% 100%);
+        }
+
+        .watermark {
+            position: absolute;
+            right: -70px;
+            top: 150px;
+            width: 330px;
+            height: 330px;
+            opacity: .035;
+            pointer-events: none;
+        }
+
+        .content {
+            padding: 18mm 15mm 14mm;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            display: grid;
+            grid-template-columns: 105px 1fr 105px;
+            align-items: center;
+            gap: 14px;
+            padding-bottom: 14px;
+            border-bottom: 3px solid var(--orange);
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+        }
+
+        .header-center {
+            text-align: center;
+        }
+
+        .govt-line {
+            font-size: 12px;
+            color: var(--orange);
+            font-weight: 700;
+            letter-spacing: 1.2px;
+        }
+
+        .title {
+            margin: 2px 0;
+            color: var(--navy);
+            font-size: 27px;
+            line-height: 1.15;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #475569;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .year-badge {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 3px 13px;
+            color: #fff;
+            background: var(--navy);
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .side-mark {
+            width: 100px;
+            height: 100px;
+            border: 2px solid var(--orange);
+            border-radius: 50%;
+            padding: 5px;
+            object-fit: contain;
+            justify-self: end;
+        }
+
+        .bill-ribbon {
+            margin: 16px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 9px 14px;
+            color: #fff;
+            background: var(--navy);
+            border-radius: 6px;
+            border-left: 7px solid var(--orange);
+        }
+
+        .bill-ribbon strong {
+            font-size: 17px;
+        }
+
+        .bill-ribbon span {
+            font-size: 11px;
+            opacity: .9;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 16px 0 8px;
+            color: var(--navy);
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .section-title::before {
+            content: "";
+            width: 5px;
+            height: 20px;
+            background: var(--orange);
+            border-radius: 4px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 22px;
+            padding: 13px 15px;
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .info-item {
+            display: grid;
+            grid-template-columns: 125px 1fr;
+            gap: 7px;
+            min-height: 25px;
+            font-size: 12px;
+            border-bottom: 1px dashed #e1d5c2;
+            padding-bottom: 3px;
+        }
+
+        .info-item:last-child,
+        .info-item:nth-last-child(2) {
+            border-bottom: 0;
+        }
+
+        .label {
+            color: var(--navy);
+            font-weight: 700;
+        }
+
+        .value {
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .status {
+            color: #166534;
+            font-weight: 700;
+        }
+
+        .floor-table,
+        .tax-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .floor-table th {
+            background: var(--orange);
+            color: #fff;
+            border: 1px solid #d77b00;
+            padding: 6px;
+            font-size: 10px;
+        }
+
+        .floor-table td {
+            border: 1px solid #e2e8f0;
+            padding: 6px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .floor-table tr:nth-child(even) td {
+            background: #fffaf2;
+        }
+
+        .demand-note {
+            margin: 15px 0;
+            padding: 11px 14px;
+            background: var(--orange-light);
+            border: 1px solid #f6c56d;
+            border-left: 6px solid var(--orange);
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .tax-table th {
+            background: var(--navy);
+            color: #fff;
+            border: 1px solid #0a193c;
+            padding: 8px 6px;
+            font-size: 11px;
+        }
+
+        .tax-table td {
+            border: 1px solid #d9dee7;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .tax-table td:first-child {
+            text-align: left;
+        }
+
+        .tax-table .current td {
+            background: #fffaf2;
+        }
+
+        .tax-table .total td {
+            background: var(--orange-light);
+            color: var(--navy);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .total-amount {
+            color: #c55f00 !important;
+            font-size: 16px !important;
+        }
+
+        .footer {
+            display: grid;
+            grid-template-columns: 1fr 125px;
+            gap: 18px;
+            margin-top: 20px;
+            padding-top: 13px;
+            border-top: 2px solid var(--navy);
+        }
+
+        .policy-title {
+            color: var(--navy);
+            font-weight: 700;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .policy {
+            margin: 0;
+            padding-left: 17px;
+            color: #475569;
+            font-size: 9.5px;
+            line-height: 1.6;
+        }
+
+        .contact {
+            margin-top: 8px;
+            color: var(--navy);
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .qr-box {
+            text-align: center;
+        }
+
+        .qr {
+            width: 92px;
+            height: 92px;
+            padding: 4px;
+            border: 2px solid var(--navy);
+            border-radius: 7px;
+            background: #fff;
+        }
+
+        .qr-label {
+            margin-top: 3px;
+            color: var(--navy);
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .notice-page {
+            page-break-before: always;
+            margin-top: 30px;
+            padding-top: 12px;
+        }
+
+        .notice-heading {
+            color: var(--navy);
+            text-align: center;
+            font-size: 19px;
+            font-weight: 700;
+            border-bottom: 2px solid var(--orange);
+            padding-bottom: 7px;
+            margin-bottom: 18px;
+        }
+
+        .notice-list {
+            margin: 0;
+            padding-left: 20px;
+            color: #475569;
+            font-size: 11px;
+            line-height: 1.8;
+        }
+
+        .signature {
+            margin-top: 55px;
+            text-align: right;
+            color: var(--navy);
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .print-bar {
+            width: 210mm;
+            margin: 0 auto 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .print-btn {
+            border: 0;
+            padding: 10px 22px;
+            border-radius: 6px;
+            background: var(--navy);
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(11, 31, 77, .18);
+        }
+
+        .print-btn:hover {
+            background: var(--navy-2);
+        }
+
+        @media (max-width: 850px) {
+            body {
+                padding: 10px;
+            }
+
+            .page,
+            .print-bar {
+                width: 100%;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 650px) {
+            .header {
+                grid-template-columns: 80px 1fr;
+            }
+
+            .side-mark {
+                display: none;
+            }
+
+            .logo {
+                width: 78px;
+                height: 78px;
+            }
+
+            .title {
+                font-size: 21px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer {
+                grid-template-columns: 1fr;
+            }
+
+            .qr-box {
+                text-align: left;
+            }
+
+            .info-item {
+                grid-template-columns: 110px 1fr;
+            }
         }
 
         @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            body {
+                padding: 0;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
             .no-print {
                 display: none !important;
             }
 
             .page {
+                width: 210mm;
+                min-height: 297mm;
                 margin: 0;
+                border: 0;
                 box-shadow: none;
-                width: 100%;
-                height: 100%;
-                padding: 5mm;
             }
 
-            body {
-                background: white;
-            }
-        }
-
-        .setwidth {
-            width: 170px !important;
-            margin-bottom: 8px;
-        }
-
-        @media (max-width: 768px) {
-
-            .main-wrapper,
-            .container,
-            .bill-container {
-                width: 100% !important;
-                padding: 10px !important;
+            .content {
+                padding: 14mm 13mm 11mm;
             }
 
-            table {
-                width: 100% !important;
-                font-size: 12px !important;
-            }
-
-            table th,
-            table td {
-                padding: 6px !important;
-                word-break: break-word;
-            }
-
-            .header-section {
-                flex-direction: column !important;
-                text-align: center !important;
+            .watermark {
+                display: block;
             }
         }
     </style>
 </head>
 
-<body class="bg-gray-100 antialiased p-4">
+<body>
 
-    <div class="max-w-4xl mx-auto mb-4 flex justify-center no-print">
-        <button onclick="window.print()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-md transition flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
-            </svg>
-            Print Bill
-        </button>
+    <div class="print-bar no-print">
+        <button onclick="window.print()" class="print-btn">🖨 Print Demand Bill</button>
     </div>
 
-    <div class="page max-w-[210mm] min-h-[297mm] mx-auto bg-white shadow-2xl p-8 border border-gray-200 overflow-hidden relative">
+    <div class="page">
+        <div class="top-strip"></div>
 
-        <header class="flex justify-between items-center border-b-2 border-green-700 pb-4 mb-6">
-            <img src="logo-main.png" class="h-16 w-auto" alt="Nagar Nigam Logo">
-            <div class="text-center">
-                <p class="text-yellow-600 font-bold text-xs uppercase tracking-widest"> <img src="sw-logo.png" class="setwidth w-auto" alt="Swachh Bharat Logo"></p>
-                <h1 class="text-2xl font-bold text-green-800">नगर निगम देवरिया</h1>
-                <p class="text-sm font-semibold text-gray-600">संपत्ति कर डिमांड बिल (2024-25)</p>
-            </div>
-            <img src="logo-1.png" class="h-16 w-auto" alt="UP Govt Logo">
-        </header>
+        <div class="content">
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-gray-700">
-            <div class="space-y-1">
-                <p><span class="font-bold text-gray-900">संपत्ति आईडी:</span> <?= $prop_id ?></p
-                    <p><span class="font-bold text-gray-900">बिल क्रमांक :</span> <?= $bill_no ?></p>
-                <p><span class="font-bold text-gray-900">नाम:</span> <?= $owner ?></p>
-                <p><span class="font-bold text-gray-900">पिता/पति:</span> <?= $details['father_husband_pan'] ?? '-' ?></p>
-                <p><span class="font-bold text-gray-900">मोबाइल:</span> <?= $mobile ?></p>
-                <p><span class="font-bold text-gray-900">वार्ड:</span> <?= $ward ?></p>
-                <p><span class="font-bold text-gray-900">सड़क:</span> <?= $details['road'] ?? '-' ?></p>
-                <p><span class="font-bold text-gray-900">वार्षिक मूल्यांकन:</span> ₹<?= $details['annual_value'] ?? '0' ?></p>
-            </div>
-            <div class="flex flex-col items-end">
-                <div class="text-right mb-4">
-                    <p class="font-bold text-green-700 uppercase">Status: <?= $details['property_status'] ?? 'New' ?></p>
-                    <p class="text-xs text-gray-500">Date: <?= date('d-m-Y') ?></p>
+            <!-- <img src="logo-main.png" class="watermark" alt=""> -->
+
+            <header class="header">
+                <img src="logo-main.png" class="logo" alt="नगर पालिका परिषद खलीलाबाद">
+
+                <div class="header-center">
+                    <div class="govt-line">उत्तर प्रदेश • स्थानीय निकाय</div>
+                    <h1 class="title">नगर पालिका परिषद खलीलाबाद</h1>
+                    <div class="subtitle">संपत्ति कर मांग पत्र / PROPERTY TAX DEMAND NOTICE</div>
+                    <span class="year-badge">वित्तीय वर्ष 2025-26</span>
                 </div>
-                <table class="w-full border text-[10px]">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="border p-1">तल</th>
-                            <th class="border p-1">क्षेत्रफल</th>
-                            <th class="border p-1">प्रकार</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($floors as $floor): ?>
-                            <tr class="text-center">
-                                <td class="border p-1"><?= $floor['floor_no'] ?></td>
-                                <td class="border p-1"><?= $floor['build_up_area'] ?> sqft</td>
-                                <td class="border p-1"><?= $floor['construction_type'] ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+
+                <img src="logo-1.png" class="side-mark" alt="">
+            </header>
+
+            <div class="bill-ribbon">
+                <strong>संपत्ति कर मांग विवरण</strong>
+                <span>Demand No.: <?= htmlspecialchars($bill_no) ?></span>
             </div>
-        </div>
 
-        <div class="my-6 p-3 bg-gray-50 border-l-4 border-green-600 text-xs italic">
-            A sum of Rs. <strong><?= $total_due ?></strong> is demand on the property with holding No. <strong><?= $details['new_holding'] ?? 'N/A' ?></strong> for FY 2025-26.
-        </div>
+            <div class="section-title">करदाता एवं संपत्ति विवरण</div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">संपत्ति आईडी</span>
+                    <span class="value"><?= htmlspecialchars($prop_id) ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">बिल क्रमांक</span>
+                    <span class="value"><?= htmlspecialchars($bill_no) ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">नाम</span>
+                    <span class="value"><?= htmlspecialchars($owner) ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">पिता/पति</span>
+                    <span class="value"><?= htmlspecialchars($details['father_husband_pan'] ?? '-') ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">मोबाइल</span>
+                    <span class="value"><?= htmlspecialchars($mobile) ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">वार्ड</span>
+                    <span class="value"><?= htmlspecialchars($ward) ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">सड़क</span>
+                    <span class="value"><?= htmlspecialchars($details['road'] ?? '-') ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">वार्षिक मूल्यांकन</span>
+                    <span class="value">₹<?= htmlspecialchars($details['annual_value'] ?? '0') ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">स्थिति</span>
+                    <span class="value status"><?= htmlspecialchars($details['property_status'] ?? 'New') ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">जारी दिनांक</span>
+                    <span class="value"><?= date('d-m-Y') ?></span>
+                </div>
+            </div>
+
+            <div class="section-title">भवन / तल विवरण</div>
+
+            <table class="floor-table">
                 <thead>
-                    <tr class="bg-green-800 text-white">
-                        <th class="border p-2 text-left">वित्तीय वर्ष</th>
-                        <th class="border p-2">सामान्य कर</th>
-                        <th class="border p-2">जल कर</th>
-                        <th class="border p-2">सीवर कर</th>
-                        <th class="border p-2">ब्याज</th>
-                        <th class="border p-2">कुल योग</th>
+                    <tr>
+                        <th>तल</th>
+                        <th>क्षेत्रफल</th>
+                        <th>निर्माण प्रकार</th>
                     </tr>
                 </thead>
-                <tbody class="text-center font-medium">
-                    <tr class="bg-gray-50">
-                        <td class="border p-2 text-left font-semibold">2024-25 (Arrear)</td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2">0.00</td>
+                <tbody>
+                    <?php if (!empty($floors)): ?>
+                        <?php foreach ($floors as $floor): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($floor['floor_no']) ?></td>
+                                <td><?= htmlspecialchars($floor['build_up_area']) ?> sqft</td>
+                                <td><?= htmlspecialchars($floor['construction_type']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="3">कोई तल विवरण उपलब्ध नहीं है।</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <div class="demand-note">
+                <strong>मांग सूचना:</strong>
+                Holding No. <strong><?= htmlspecialchars($details['new_holding'] ?? 'N/A') ?></strong>
+                वाली संपत्ति पर वित्तीय वर्ष 2025-26 के लिए कुल देय राशि
+                <strong>₹<?= $total_due ?></strong> है।
+            </div>
+
+            <div class="section-title">कर मांग का विवरण</div>
+
+            <table class="tax-table">
+                <thead>
+                    <tr>
+                        <th>वित्तीय वर्ष</th>
+                        <th>सामान्य कर</th>
+                        <th>जल कर</th>
+                        <th>सीवर कर</th>
+                        <th>ब्याज</th>
+                        <th>कुल योग</th>
                     </tr>
-                    <tr class="bg-white">
-                        <td class="border p-2 text-left font-semibold">2025-26 (Current)</td>
-                        <td class="border p-2"><?= number_format($calc['property_tax'] ?? 0, 2) ?></td>
-                        <td class="border p-2"><?= number_format($calc['water_tax'] ?? 0, 2) ?></td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2">0.00</td>
-                        <td class="border p-2"><?= $total_due ?></td>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>2024-25 (Arrear)</strong></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
                     </tr>
-                    <tr class="bg-green-50 font-bold text-lg">
-                        <td colspan="5" class="border p-2 text-right">कुल देय राशि:</td>
-                        <td class="border p-2 text-green-800">₹<?= $total_due ?></td>
+
+                    <tr class="current">
+                        <td><strong>2025-26 (Current)</strong></td>
+                        <td><?= number_format($calc['property_tax'] ?? 0, 2) ?></td>
+                        <td><?= number_format($calc['water_tax'] ?? 0, 2) ?></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td><strong><?= $total_due ?></strong></td>
+                    </tr>
+
+                    <tr class="total">
+                        <td colspan="5" style="text-align:right;">कुल देय राशि:</td>
+                        <td class="total-amount">₹<?= $total_due ?></td>
                     </tr>
                 </tbody>
             </table>
-        </div>
 
-        <footer class="mt-10 flex justify-between items-start gap-6 pt-6 border-t border-gray-100">
-            <div class="flex-1 text-[10px] leading-relaxed text-gray-600">
-                <h3 class="font-bold text-gray-800 mb-1 underline">Discount Policy:</h3>
-                <ul class="list-disc pl-4 space-y-1">
-                    <li>31-07-2024 तक ऑनलाइन भुगतान पर चालू मांग पर 10% छूट प्रभावी होगी।</li>
-                    <li>01-08-2024 से 31-08-2024 तक भुगतान पर 8% छूट प्रभावी होगी।</li>
-                </ul>
-                <div class="mt-4 flex gap-4 opacity-75">
-                    <span>🌐 www.nagarnigamgkp.org.in</span>
-                    <span>📞 05514056585</span>
+            <footer class="footer">
+                <div>
+                    <div class="policy-title">भुगतान / छूट संबंधी सूचना</div>
+                    <ul class="policy">
+                        <li>31-07-2024 तक ऑनलाइन भुगतान पर चालू मांग पर 10% छूट प्रभावी होगी।</li>
+                        <li>01-08-2024 से 31-08-2024 तक भुगतान पर 8% छूट प्रभावी होगी।</li>
+                    </ul>
+
+                    <div class="contact">
+                        🌐 www.nagarnigankhalilabad.org.in &nbsp;&nbsp; | &nbsp;&nbsp; ☎ 05514056585
+                    </div>
                 </div>
-            </div>
-            <div class="w-32 text-center">
-                <div class="border p-1 rounded-lg">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=pay_gkp_<?= $id ?>" class="w-full" alt="QR Code">
+
+                <div class="qr-box">
+                    <img
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=pay_gkp_<?= urlencode($id) ?>"
+                        class="qr"
+                        alt="QR Code">
+                    <div class="qr-label">SCAN TO PAY ONLINE</div>
                 </div>
-                <p class="text-[9px] mt-1 font-bold text-gray-500 uppercase">Scan to Pay Online</p>
-            </div>
-        </footer>
+            </footer>
 
-        <div class="page-break"></div>
+            <div class="notice-page">
+                <div class="notice-heading">महत्वपूर्ण सूचना</div>
 
-        <div class="mt-12">
-            <h2 class="text-xl font-bold text-center mb-6 border-b pb-2 text-gray-800 italic uppercase">Important Notice</h2>
-            <ol class="text-[11px] space-y-3 text-gray-700 leading-snug">
-                <li>जी०आई०एस० सर्वेक्षण के आधार पर पुनरीक्षण प्रक्रिया पूर्ण होने के उपरांत अंतर धनराशि नियमनुसार प्रभावी तिथि से अनिवार्य रूप से देय होगी।</li>
-                <li>ऑनलाइन भुगतान हेतु वेबसाइट <strong>www.nagarnigamgkp.org</strong> का उपयोग करें।</li>
-                <li>समय से भुगतान न करने पर नगर निगम अधिनियम 1959 के तहत कुर्की की कार्यवाही संभव है।</li>
-                <li>यह कंप्यूटर जनित बिल है, इस पर हस्ताक्षर की आवश्यकता नहीं है।</li>
-            </ol>
-            <div class="mt-20 text-right">
-                <p class="font-bold text-lg text-green-900 underline decoration-double">नगर निगम गोरखपुर</p>
+                <ol class="notice-list">
+                    <li>जी०आई०एस० सर्वेक्षण के आधार पर पुनरीक्षण प्रक्रिया पूर्ण होने के उपरांत अंतर धनराशि नियमनुसार प्रभावी तिथि से अनिवार्य रूप से देय होगी।</li>
+                    <li>ऑनलाइन भुगतान हेतु वेबसाइट <strong>www.nagarnigankhalilabad.org</strong> का उपयोग करें।</li>
+                    <li>समय से भुगतान न करने पर नगर निगम अधिनियम 1959 के तहत कुर्की की कार्यवाही संभव है।</li>
+                    <li>यह कंप्यूटर जनित बिल है, इस पर हस्ताक्षर की आवश्यकता नहीं है।</li>
+                </ol>
+
+                <div class="signature">नगर पालिका परिषद खलीलाबाद</div>
             </div>
+
         </div>
-    </div>
-
-    <div class="max-w-4xl mx-auto mt-6 text-center no-print">
-        <button onclick="window.print()" class="bg-blue-600 text-white px-10 py-3 rounded-full font-bold shadow-lg hover:bg-blue-700 transition transform hover:scale-105">
-            Click Here to Print Bill
-        </button>
     </div>
 
 </body>

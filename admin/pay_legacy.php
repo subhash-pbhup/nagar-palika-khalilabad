@@ -71,7 +71,7 @@ $ownerTaxPayerName = $propertyDetails['OwnerName'] ?? '';
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Payment Gateway - Deoria Nagar Palika</title>
+<title>Payment Gateway - khalilabad Nagar Palika</title>
 <link href="favicon.png" rel="icon">
 <link href="css/mystyle.css" rel="stylesheet">
 <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
@@ -424,11 +424,11 @@ tailwind.config = {
                 <p class="text-primary-700 font-semibold mb-2">Declaration</p>
                 <div class="checkbox-group">
                     <input type="checkbox" id="declaration1" name="declaration1" checked>
-                    <label for="declaration1">I/We hereby declare that the above information and property tax assessment based there one is correct to the best of my/our knowledge and belief and I/We undertake to abide by the relevant provisions of the Nagar Palika Parishad Deoria.</label>
+                    <label for="declaration1">I/We hereby declare that the above information and property tax assessment based there one is correct to the best of my/our knowledge and belief and I/We undertake to abide by the relevant provisions of the Nagar Palika Parishad khalilabad.</label>
                 </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="declaration2" name="declaration2" checked>
-                    <label for="declaration2">I/We fully understand that any information furnished above, if proved incorrect or false will render me/us liable for penal action or other consequences as may be prescribed in Laws, Rules or Regulations framed by Govt. of Nagar Palika Parishad Deoria.</label>
+                    <label for="declaration2">I/We fully understand that any information furnished above, if proved incorrect or false will render me/us liable for penal action or other consequences as may be prescribed in Laws, Rules or Regulations framed by Govt. of Nagar Palika Parishad khalilabad.</label>
                 </div>
             </div>
 
@@ -441,7 +441,7 @@ tailwind.config = {
         </div> 
 
         <footer class="text-center text-gray-500 text-sm mt-6">
-            © 2025 Deoria Nagar Palika Parishad - All Rights Reserved.
+            © 2025 khalilabad Nagar Palika Parishad - All Rights Reserved.
         </footer>
     </main>
 </div>

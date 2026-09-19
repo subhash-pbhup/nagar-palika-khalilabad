@@ -60,7 +60,7 @@
 
         <div class="p-6 flex items-center justify-center border-b border-white/50">
             <a href="dashboard.php" class="transition-transform hover:scale-105 duration-300">
-                <img src="img/admin-logo.png" alt="Deoria Logo" class="h-10 w-auto">
+                <img src="img/admin-logo.png" alt="khalilabad Logo" class="h-10 w-auto">
             </a>
         </div>
 
@@ -186,7 +186,7 @@
                     <i class='bx bxl-play-store mr-2 text-emerald-400 text-lg'></i> Mobile App
                 </h4>
                 <p class="text-[10px] opacity-60 mt-1 mb-3">Access assessment data on the go.</p>
-                <a href="https://play.google.com/store/apps/details?id=com.lgf.deoriaupmuncipal" target="_blank"
+                <a href="https://play.google.com/store/apps/details?id=com.lgf.khalilabadupmuncipal" target="_blank"
                     class="block w-full text-center py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all">
                     DOWNLOAD NOW
                 </a>

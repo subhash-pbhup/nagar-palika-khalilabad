@@ -76,7 +76,7 @@ require_once "./include/permission.php";
                 class="transition-transform hover:scale-105 duration-300">
 
                 <img src="img/admin-logo.png"
-                    alt="Deoria Logo"
+                    alt="Khalilabad Logo"
                     class="h-10 w-auto">
 
             </a>
@@ -240,6 +240,87 @@ require_once "./include/permission.php";
                                         </a>
 
                                     <?php endif; ?>
+
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                    <!-- =================================================
+                         SURVEYOR MANAGEMENT
+                    ================================================== -->
+
+                    <?php
+
+                    $safapplication =
+                        hasPermission('safapplication.collection') ||
+                        hasPermission('safapplication.demands');
+
+                    ?>
+
+                    <?php if ($safapplication): ?>
+
+                        <div class="dropdown-container">
+
+
+                            <button
+                                class="sidebar-link-glass w-full flex justify-between items-center group"
+                                data-dropdown="safapplication">
+
+                                <span class="flex items-center">
+
+                                    <i class='bx bx-user-check text-xl mr-3'></i>
+
+                                    <span class="font-semibold text-sm">
+                                        SAF Appliaction
+                                    </span>
+
+                                </span>
+
+                                <i class='bx bx-chevron-right text-base transition-transform arrow-icon'></i>
+
+                            </button>
+
+
+                            <div
+                                class="sidebar-submenu-glass overflow-hidden transition-all duration-300 max-h-0"
+                                id="safapplication">
+
+                                <div class="pl-4 pr-2 py-1 space-y-1 mt-1">
+
+
+                                    <!-- Add safapplication -->
+
+                                    <?php if (hasPermission('safapplication.collection')): ?>
+
+                                        <a href="collections.php"
+                                            class="submenu-item group">
+
+                                            <i class='bx bx-user-plus mr-2 opacity-70 group-hover:opacity-100'></i>
+
+                                            Collections
+
+                                        </a>
+
+                                    <?php endif; ?>
+
+                                    <?php if (hasPermission('safapplication.demands')): ?>
+
+                                        <a href="demands.php"
+                                            class="submenu-item group">
+
+                                            <i class='bx bx-user-plus mr-2 opacity-70 group-hover:opacity-100'></i>
+
+                                            Demands
+
+                                        </a>
+
+                                    <?php endif; ?>
+
 
 
                                 </div>
@@ -567,7 +648,7 @@ require_once "./include/permission.php";
 
 
                 <a
-                    href="https://play.google.com/store/apps/details?id=com.lgf.deoriaupmuncipal"
+                    href="https://play.google.com/store/apps/details?id=com.lgf.Khalilabadupmuncipal"
                     target="_blank"
                     class="block w-full text-center py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all">
 

@@ -28,7 +28,7 @@ $floors        = $data['floors'];
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: #cbd5e1;
+            background: #DCE5F0;
             min-height: 100vh;
 
             display: flex;
@@ -49,12 +49,12 @@ $floors        = $data['floors'];
         }
 
         .invoice-table th {
-            background: #f8fafc;
+            background: #061A3A;
             text-transform: uppercase;
             font-size: 10px;
             letter-spacing: 0.05em;
-            color: #64748b;
-            border-bottom: 2px solid #e2e8f0;
+            color: #FFFFFF;
+            border-bottom: 2px solid #F28C00;
         }
 
         @media print {
@@ -77,15 +77,15 @@ $floors        = $data['floors'];
 
 <body>
 
-    <div class="preview-card flex flex-col overflow-hidden">
+    <div class="preview-card flex flex-col overflow-hidden border-t-4 border-[#F28C00]">
 
         <div class="p-6 border-b border-dashed border-slate-200 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="h-14 w-14 bg-white rounded flex items-center justify-center overflow-hidden">
-                    <img src="logo-main.png" alt="Logo" class="h-12 object-contain">
+                    <img src="../logo-main.png" alt="Logo" class="h-12 object-contain">
                 </div>
                 <div>
-                    <h1 class="text-base font-black text-slate-800 uppercase leading-none tracking-tight">Nagar Palika Parishad Khalilabad</h1>
+                    <h1 class="text-base font-black text-[#061A3A] uppercase leading-none tracking-tight">Nagar Palika Parishad Khalilabad</h1>
                     <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase">Property Tax Assessment Preview (Digital Copy)</p>
                 </div>
             </div>
@@ -95,10 +95,10 @@ $floors        = $data['floors'];
             </div>
         </div>
 
-        <div class="px-8 py-4 bg-slate-50 flex justify-between items-center border-b border-slate-100">
+        <div class="px-8 py-4 bg-[#F4F7FB] flex justify-between items-center border-b border-slate-100">
             <div>
-                <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Assessed Ward</p>
-                <h2 class="text-base font-bold text-slate-800 uppercase"><?= htmlspecialchars($ward_name) ?></h2>
+                <p class="text-[9px] font-black text-[#F28C00] uppercase tracking-widest">Assessed Ward</p>
+                <h2 class="text-base font-bold text-[#061A3A] uppercase"><?= htmlspecialchars($ward_name) ?></h2>
             </div>
             <div class="text-right">
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assessment ID</p>
@@ -122,14 +122,14 @@ $floors        = $data['floors'];
                             <td class="px-8 py-3 font-bold text-slate-700"><?= $f['floor'] ?></td>
                             <td class="px-8 py-3 text-center text-slate-500"><?= $f['area'] ?></td>
                             <td class="px-8 py-3 text-center text-slate-500">₹<?= $f['rate'] ?></td>
-                            <td class="px-8 py-3 text-right font-bold text-slate-900">₹<?= number_format($f['arv'], 2) ?></td>
+                            <td class="px-8 py-3 text-right font-bold text-[#061A3A]">₹<?= number_format($f['arv'], 2) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
 
-        <div class="px-8 py-6 bg-slate-50 border-t border-slate-200">
+        <div class="px-8 py-6 bg-[#F4F7FB] border-t border-slate-200">
             <div class="flex justify-between items-start gap-10">
                 <div class="flex-1">
                     <p class="text-[10px] text-slate-400 leading-normal italic">
@@ -150,8 +150,8 @@ $floors        = $data['floors'];
                         <span>₹<?= number_format($water_tax, 2) ?></span>
                     </div>
                     <div class="pt-2 mt-2 border-t border-slate-300 flex justify-between items-center">
-                        <span class="text-xs font-black text-slate-800 uppercase">Grand Total</span>
-                        <span class="text-2xl font-black text-emerald-600">₹<?= number_format($total_tax, 2) ?></span>
+                        <span class="text-xs font-black text-[#061A3A] uppercase">Grand Total</span>
+                        <span class="text-2xl font-black text-[#F28C00]">₹<?= number_format($total_tax, 2) ?></span>
                     </div>
                 </div>
             </div>
@@ -166,7 +166,7 @@ $floors        = $data['floors'];
                     Print Preview
                 </button>
                 <a href="store_arv.php" target="_blank"
-                    class="px-8 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition active:scale-95 inline-flex items-center justify-center">
+                    class="px-8 py-2.5 rounded-lg bg-[#F28C00] text-white font-semibold text-xs shadow-sm hover:bg-[#D97700] transition active:scale-95 inline-flex items-center justify-center">
                     Confirm & Save Record
                 </a>
             </div>

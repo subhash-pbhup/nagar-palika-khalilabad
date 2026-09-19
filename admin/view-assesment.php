@@ -212,6 +212,15 @@ $queryStr = http_build_query($queryString);
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
+        /* Khalilabad logo theme: navy + orange */
+        :root {
+            --kp-navy: #061A3A;
+            --kp-navy-light: #102B5C;
+            --kp-orange: #F28C00;
+            --kp-orange-dark: #D97700;
+            --kp-orange-soft: #FFF4E5;
+        }
+
         .sticky-action-column {
             position: sticky;
             right: 0;
@@ -684,44 +693,73 @@ $queryStr = http_build_query($queryString);
         </div>
 
         <div id="arvModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onclick="closeArvModal()"></div>
-            <div class="relative bg-white/95 backdrop-blur-2xl w-full max-w-lg transform overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.2)] border border-white">
+            <!-- Logo-theme overlay -->
+            <div class="fixed inset-0 bg-[#061A3A]/55 backdrop-blur-sm transition-opacity"
+                onclick="closeArvModal()"></div>
 
-                <div class="px-8 py-5 border-b border-slate-100/50 flex items-center justify-between bg-slate-50/40">
-                    <span class="flex items-center gap-2">
-                        <span class="h-2.5 w-2.5 rounded-full bg-[#10B981] animate-ping"></span>
-                        <h3 class="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-400">Official Confirmation</h3>
-                    </span>
-                    <button onclick="closeArvModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+            <!-- Confirmation modal -->
+            <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl border border-[#E5E7EB]">
+
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#F28C00]"></span>
+                        <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#6B7280]">
+                            Official Confirmation
+                        </span>
+                    </div>
+
+                    <button type="button"
+                        onclick="closeArvModal()"
+                        class="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#061A3A] hover:bg-[#FFF4E5] transition"
+                        aria-label="Close">
+                        <i class="fa fa-times text-sm"></i>
                     </button>
                 </div>
 
-                <div class="p-8 flex items-start gap-6">
-                    <div class="flex-shrink-0 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-[#10B981]">
-                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                        </svg>
+                <!-- Body -->
+                <div class="px-6 py-7">
+                    <div class="flex items-start gap-4">
+
+                        <!-- Logo-inspired orange icon -->
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-[#FFF4E5] flex items-center justify-center">
+                            <i class="fa fa-file-text-o text-[#F28C00] text-xl"></i>
+                        </div>
+
+                        <div class="min-w-0">
+                            <h2 class="text-xl font-bold text-[#061A3A] mb-2">
+                                Finalize Tax Details?
+                            </h2>
+
+                            <p class="text-sm leading-6 text-gray-500">
+                                You are about to calculate and lock the property tax for this year.
+                                Once confirmed, the tax details will be saved in the government records
+                                and a permanent bill ID will be generated.
+                            </p>
+                        </div>
                     </div>
 
-                    <div class="space-y-2">
-                        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Finalize Tax Details?</h2>
-                        <p class="text-[14px] text-slate-500 leading-relaxed">
-                            You are about to **calculate and lock** the property tax for this year. Once confirmed, these details will be saved in the government records and a permanent bill ID will be generated.
+                    <!-- Important notice -->
+                    <div class="mt-5 flex items-start gap-3 rounded-xl bg-[#FFF8ED] border border-[#F9D9AA] px-4 py-3">
+                        <i class="fa fa-info-circle text-[#F28C00] mt-0.5"></i>
+                        <p class="text-xs leading-5 text-[#7A4A00]">
+                            Please verify the assessment details before generating the tax record.
                         </p>
                     </div>
                 </div>
 
-                <div class="px-8 pb-8 flex items-center gap-4">
-                    <button onclick="closeArvModal()"
-                        class="flex-1 justify-center rounded-2xl bg-slate-100 px-6 py-4 text-sm font-bold text-slate-500 hover:bg-slate-200 transition-all active:scale-95">
+                <!-- Footer -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 bg-[#F8FAFC] border-t border-gray-100">
+                    <button type="button"
+                        onclick="closeArvModal()"
+                        class="px-5 py-2.5 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition">
                         Go Back
                     </button>
 
-                    <button onclick="confirmGenerateArv()"
-                        class="flex-[1.5] justify-center rounded-2xl bg-[#10B981] px-6 py-4 text-sm font-bold text-white shadow-[0_12px_24px_-6px_rgba(16,185,129,0.4)] hover:bg-[#0da371] hover:shadow-none transition-all active:scale-95">
+                    <button type="button"
+                        onclick="confirmGenerateArv()"
+                        class="px-5 py-2.5 rounded-lg bg-[#F28C00] hover:bg-[#D97700] text-white text-sm font-semibold shadow-sm transition active:scale-[0.98]">
+                        <i class="fa fa-check mr-1.5"></i>
                         Yes, Generate Now
                     </button>
                 </div>

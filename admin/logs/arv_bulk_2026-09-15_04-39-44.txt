@@ -1,0 +1,12 @@
+[2026-09-15 04:39:44] ARV BULK IMPORT STARTED: ARV_Tax_Template_10_Dummy_Data.csv
+[2026-09-15 04:39:44] [SUCCESS] Row 2: Uploaded successfully. Assessment ID: 1, Holding: KLB-W2-00001, Property ID: 0952601002520025R
+[2026-09-15 04:39:44] [SUCCESS] Row 3: Uploaded successfully. Assessment ID: 2, Holding: KLB-W2-00002, Property ID: 0952601002520027R
+[2026-09-15 04:39:44] [SUCCESS] Row 4: Uploaded successfully. Assessment ID: 3, Holding: KLB-W2-00003, Property ID: 0952601002520029R
+[2026-09-15 04:39:44] [SUCCESS] Row 5: Uploaded successfully. Assessment ID: 4, Holding: KLB-W2-00004, Property ID: 0952601002520031R
+[2026-09-15 04:39:44] [SUCCESS] Row 6: Uploaded successfully. Assessment ID: 5, Holding: KLB-W2-00005, Property ID: 0952601002520033R
+[2026-09-15 04:39:44] [SUCCESS] Row 7: Uploaded successfully. Assessment ID: 6, Holding: KLB-W2-00006, Property ID: 0952601002520035R
+[2026-09-15 04:39:44] [SUCCESS] Row 8: Uploaded successfully. Assessment ID: 7, Holding: KLB-W2-00007, Property ID: 0952601002520037R
+[2026-09-15 04:39:44] [SUCCESS] Row 9: Uploaded successfully. Assessment ID: 8, Holding: KLB-W2-00008, Property ID: 0952601002520039R
+[2026-09-15 04:39:44] [SUCCESS] Row 10: Uploaded successfully. Assessment ID: 9, Holding: KLB-W2-00009, Property ID: 0952601002520041R
+[2026-09-15 04:39:44] [SUCCESS] Row 11: Uploaded successfully. Assessment ID: 10, Holding: KLB-W2-00010, Property ID: 0952601002520043R
+[2026-09-15 04:39:44] FINISHED | Success: 10 | Skipped: 0 | Errors: 0
