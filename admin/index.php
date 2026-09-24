@@ -113,7 +113,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $retained_username = $retained_username ?? '';
 ?>
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950">
+<html lang="en" class="h-full bg-brand-navy">
 
 <head>
     <meta charset="UTF-8" />
@@ -125,6 +125,24 @@ $retained_username = $retained_username ?? '';
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config for Theme Colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            navy: '#051124',
+                            card: '#0f172a',
+                            orange: '#f97316',
+                            orangeHover: '#ea580c'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
     <!-- FontAwesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -146,9 +164,9 @@ $retained_username = $retained_username ?? '';
             background-size: 28px 28px;
         }
 
-        /* Icon turns green when its sibling input is focused */
+        /* Icon turns orange when its sibling input is focused */
         .input-group:focus-within .input-icon {
-            color: #10b981;
+            color: #f97316;
         }
 
         .service-chip {
@@ -161,22 +179,22 @@ $retained_username = $retained_username ?? '';
     </style>
 </head>
 
-<body class="min-h-full bg-slate-950 text-slate-100 bg-grid-pattern flex items-center justify-center p-4 sm:p-6 lg:p-8">
+<body class="min-h-full bg-brand-navy text-slate-100 bg-grid-pattern flex items-center justify-center p-4 sm:p-6 lg:p-8">
 
     <!-- ── Top Nav Bar ── -->
     <div class="fixed top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center z-20 pointer-events-none">
         <a href="../"
             class="pointer-events-auto group inline-flex items-center gap-2 px-4 py-2 rounded-full
                   bg-slate-900/80 border border-slate-800 text-xs font-semibold text-slate-300
-                  hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-lg">
-            <i class="fas fa-arrow-left text-emerald-400 group-hover:-translate-x-1 transition-transform"></i>
+                  hover:text-white hover:border-brand-orange hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-lg">
+            <i class="fas fa-arrow-left text-brand-orange group-hover:-translate-x-1 transition-transform"></i>
             <span>Main Portal</span>
         </a>
 
         <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full
-                    bg-emerald-950/60 border border-emerald-500/30 text-[11px] font-medium
-                    text-emerald-300 backdrop-blur-md">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    bg-slate-900/60 border border-slate-700/50 text-[11px] font-medium
+                    text-slate-300 backdrop-blur-md">
+            <span class="w-2 h-2 rounded-full bg-brand-orange animate-pulse"></span>
             <span>Official Admin Portal &bull; Sant Kabir Nagar</span>
         </div>
     </div>
@@ -189,7 +207,7 @@ $retained_username = $retained_username ?? '';
 
             <!-- Logo + Hindi heading -->
             <div class="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
-                <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md shrink-0">
+                <div class="p-2.5 rounded-2xl bg-brand-card/90 border border-slate-800 shadow-xl backdrop-blur-md shrink-0">
                     <img src="../assets/images/logo/logo.png"
                         alt="Municipal Logo"
                         class="h-16 sm:h-20 w-auto object-contain"
@@ -199,13 +217,13 @@ $retained_username = $retained_username ?? '';
                 <div class="space-y-1">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full
                                 bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 font-medium">
-                        <span class="text-amber-400 font-bold">
+                        <span class="text-brand-orange font-bold">
                             <i class="fas fa-shield-halved mr-1"></i> Govt. of UP
                         </span>
                         <span class="text-slate-600">&bull;</span>
                         <span class="text-slate-400">Digital India</span>
                     </div>
-                    <h2 class="text-2xl sm:text-3xl font-bold text-amber-400 font-hindi tracking-wide pt-1">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white font-hindi tracking-wide pt-1">
                         नगर पालिका परिषद
                     </h2>
                 </div>
@@ -214,7 +232,7 @@ $retained_username = $retained_username ?? '';
             <!-- City / District name -->
             <div>
                 <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-none uppercase">
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-300 to-orange-500">
                         KHALILABAD
                     </span>
                 </h1>
@@ -234,26 +252,26 @@ $retained_username = $retained_username ?? '';
                 <div class="flex flex-wrap justify-center lg:justify-start gap-2.5">
                     <div class="service-chip flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/70
                                 border border-slate-800 text-slate-300 text-xs font-medium
-                                hover:border-emerald-500/50 hover:bg-slate-900 cursor-default">
-                        <i class="fas fa-calculator text-emerald-400"></i>
+                                hover:border-brand-orange/50 hover:bg-slate-900 cursor-default">
+                        <i class="fas fa-calculator text-brand-orange opacity-80"></i>
                         <span>ARV Calculation</span>
                     </div>
                     <div class="service-chip flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/70
                                 border border-slate-800 text-slate-300 text-xs font-medium
-                                hover:border-emerald-500/50 hover:bg-slate-900 cursor-default">
-                        <i class="fas fa-house-user text-teal-400"></i>
+                                hover:border-brand-orange/50 hover:bg-slate-900 cursor-default">
+                        <i class="fas fa-house-user text-brand-orange opacity-80"></i>
                         <span>Property Assessment</span>
                     </div>
                     <div class="service-chip flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/70
                                 border border-slate-800 text-slate-300 text-xs font-medium
-                                hover:border-emerald-500/50 hover:bg-slate-900 cursor-default">
-                        <i class="fas fa-map-location-dot text-cyan-400"></i>
+                                hover:border-brand-orange/50 hover:bg-slate-900 cursor-default">
+                        <i class="fas fa-map-location-dot text-brand-orange opacity-80"></i>
                         <span>GIS Field Survey</span>
                     </div>
                     <div class="service-chip flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/70
                                 border border-slate-800 text-slate-300 text-xs font-medium
-                                hover:border-emerald-500/50 hover:bg-slate-900 cursor-default">
-                        <i class="fas fa-file-invoice-dollar text-amber-400"></i>
+                                hover:border-brand-orange/50 hover:bg-slate-900 cursor-default">
+                        <i class="fas fa-file-invoice-dollar text-brand-orange opacity-80"></i>
                         <span>Tax Management</span>
                     </div>
                 </div>
@@ -262,12 +280,12 @@ $retained_username = $retained_username ?? '';
             <!-- Security note (desktop only) -->
             <div class="hidden lg:flex items-center gap-4 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
                 <div class="flex items-center gap-1.5">
-                    <i class="fas fa-lock text-emerald-400"></i>
+                    <i class="fas fa-lock text-brand-orange"></i>
                     <span>256-Bit SSL Encrypted</span>
                 </div>
                 <span>&bull;</span>
                 <div class="flex items-center gap-1.5">
-                    <i class="fas fa-user-shield text-teal-400"></i>
+                    <i class="fas fa-user-shield text-brand-orange"></i>
                     <span>Authorized Official Access Only</span>
                 </div>
             </div>
@@ -275,16 +293,16 @@ $retained_username = $retained_username ?? '';
 
         <!-- ═══════════ RIGHT — Login Card ═══════════ -->
         <div class="lg:col-span-5">
-            <div class="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 sm:p-8
+            <div class="bg-brand-card border border-slate-800/80 rounded-3xl p-6 sm:p-8
                         shadow-2xl backdrop-blur-xl relative overflow-hidden">
 
                 <!-- Top accent gradient line -->
-                <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500"></div>
+                <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-400 via-brand-orange to-orange-600"></div>
 
                 <!-- Card header -->
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800
+                        <div class="w-12 h-12 rounded-2xl bg-brand-navy border border-slate-800
                                     flex items-center justify-center p-1 shadow-inner shrink-0">
                             <img src="../assets/images/logo/logo.png"
                                 alt="Logo"
@@ -296,8 +314,8 @@ $retained_username = $retained_username ?? '';
                             <p class="text-xs text-slate-400">Enter your credentials below</p>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700
-                                 text-[10px] font-bold tracking-wider uppercase text-emerald-400">
+                    <span class="px-2.5 py-1 rounded-md bg-slate-800 border border-brand-orange/30
+                                 text-[10px] font-bold tracking-wider uppercase text-brand-orange">
                         Secure v1.0
                     </span>
                 </div>
@@ -337,10 +355,10 @@ $retained_username = $retained_username ?? '';
                                 value="<?= $retained_username ?>"
                                 required
                                 autocomplete="username"
-                                class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-xl
                                           py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500
-                                          focus:outline-none focus:border-emerald-500 focus:ring-1
-                                          focus:ring-emerald-500 transition-all">
+                                          focus:outline-none focus:border-brand-orange focus:ring-1
+                                          focus:ring-brand-orange transition-all">
                         </div>
                     </div>
 
@@ -357,10 +375,10 @@ $retained_username = $retained_username ?? '';
                                 placeholder="••••••••"
                                 required
                                 autocomplete="current-password"
-                                class="w-full bg-slate-950/60 border border-slate-800 rounded-xl
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-xl
                                           py-3 pl-10 pr-10 text-sm text-white placeholder-slate-500
-                                          focus:outline-none focus:border-emerald-500 focus:ring-1
-                                          focus:ring-emerald-500 transition-all">
+                                          focus:outline-none focus:border-brand-orange focus:ring-1
+                                          focus:ring-brand-orange transition-all">
                             <button type="button"
                                 id="passwordToggle"
                                 aria-label="Toggle password visibility"
@@ -376,20 +394,20 @@ $retained_username = $retained_username ?? '';
                         <label class="flex items-center gap-2 cursor-pointer select-none">
                             <input type="checkbox"
                                 name="remember_me"
-                                class="w-4 h-4 rounded border-slate-800 bg-slate-950
-                                          text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900">
+                                class="w-4 h-4 rounded border-slate-700 bg-slate-900
+                                          text-brand-orange focus:ring-brand-orange focus:ring-offset-brand-card">
                             <span class="text-slate-400">Remember session</span>
                         </label>
                         <span class="text-slate-500 text-[11px]">
-                            <i class="fas fa-lock text-xs mr-1"></i> SSL Protected
+                            <i class="fas fa-lock text-xs mr-1 text-brand-orange opacity-70"></i> SSL Protected
                         </span>
                     </div>
 
                     <!-- Submit -->
                     <button type="submit"
-                        class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600
-                                   hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl
-                                   shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60
+                        class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-brand-orange to-orange-600
+                                   hover:from-brand-orangeHover hover:to-orange-700 text-white font-bold rounded-xl
+                                   shadow-lg shadow-orange-900/30 hover:shadow-orange-900/50
                                    active:scale-[0.99] transition-all flex items-center justify-center gap-2 group">
                         <span>LOGIN SECURELY</span>
                         <i class="fas fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>

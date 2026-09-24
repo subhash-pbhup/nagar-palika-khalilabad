@@ -1,16 +1,14 @@
 <?php
 session_start();
 
-require_once "db.php";
+require_once "admin/db.php";
 
 /*
 |--------------------------------------------------------------------------
 | UP Consumer List
 |--------------------------------------------------------------------------
 | New consumer/property search page for Nagar Palika Parishad Khalilabad.
-| Logo theme:
-|   Navy  : #061A3A
-|   Orange: #F28C00
+| Added Pagination (20 records/page) & Full Responsiveness.
 |--------------------------------------------------------------------------
 */
 
@@ -142,21 +140,25 @@ $address_code = trim($_GET['address_code'] ?? '');
 $mobile       = trim($_GET['mobile'] ?? '');
 $owner_name   = trim($_GET['owner_name'] ?? '');
 
+// Pagination config
+$records_per_page = 20;
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($current_page < 1) $current_page = 1;
+$offset = ($current_page - 1) * $records_per_page;
+
+// To retain search queries in pagination links
+$query_params = $_GET;
+unset($query_params['page']);
+$query_string = http_build_query($query_params);
+$query_string = $query_string ? '&' . $query_string : '';
+
 // ---------------------------------------------------------------------
 // Load Mohalla list
 // ---------------------------------------------------------------------
 $mohalla_list = [];
 $ward_list = [];
 
-$mohalla_sql = "
-    SELECT
-        mohalla_id,
-        ward_id,
-        mohalla_name
-    FROM mohalla
-    ORDER BY mohalla_name ASC
-";
-
+$mohalla_sql = "SELECT mohalla_id, ward_id, mohalla_name FROM mohalla ORDER BY mohalla_name ASC";
 if ($mohalla_result = $conn->query($mohalla_sql)) {
     while ($m = $mohalla_result->fetch_assoc()) {
         $mohalla_list[] = $m;
@@ -165,14 +167,7 @@ if ($mohalla_result = $conn->query($mohalla_sql)) {
 }
 
 /* Load Ward list */
-$ward_sql = "
-    SELECT
-        ward_id,
-        ward_no
-    FROM wards
-    ORDER BY ward_no ASC
-";
-
+$ward_sql = "SELECT ward_id, ward_no FROM wards ORDER BY ward_no ASC";
 if ($ward_result = $conn->query($ward_sql)) {
     while ($w = $ward_result->fetch_assoc()) {
         $ward_list[] = $w;
@@ -183,9 +178,9 @@ if ($ward_result = $conn->query($ward_sql)) {
 // ---------------------------------------------------------------------
 // Consumer/property search
 // ---------------------------------------------------------------------
-// The query uses the assessment and mohalla columns supplied for this project.
-// If no search is supplied, no records are loaded.
 $rows = [];
+$total_records = 0;
+$total_pages = 1;
 
 $has_search = ($ward !== '' || $mohalla !== '' || $house_no !== '' || $address_code !== '' || $mobile !== '' || $owner_name !== '');
 
@@ -210,11 +205,7 @@ if ($has_search) {
 
     // House / address code
     if ($house_no !== '') {
-        $conditions[] = "(
-            a.house_no LIKE ?
-            OR a.new_holding LIKE ?
-            OR a.property_id LIKE ?
-        )";
+        $conditions[] = "(a.house_no LIKE ? OR a.new_holding LIKE ? OR a.property_id LIKE ?)";
         $params[] = "%{$house_no}%";
         $params[] = "%{$house_no}%";
         $params[] = "%{$house_no}%";
@@ -222,12 +213,7 @@ if ($has_search) {
     }
 
     if ($address_code !== '') {
-        $conditions[] = "(
-            a.property_id LIKE ?
-            OR a.new_holding LIKE ?
-            OR a.old_pid LIKE ?
-            OR a.old_holding LIKE ?
-        )";
+        $conditions[] = "(a.property_id LIKE ? OR a.new_holding LIKE ? OR a.old_pid LIKE ? OR a.old_holding LIKE ?)";
         $params[] = "%{$address_code}%";
         $params[] = "%{$address_code}%";
         $params[] = "%{$address_code}%";
@@ -249,129 +235,77 @@ if ($has_search) {
 
     $where = implode(" AND ", $conditions);
 
+    // Get Total Count for Pagination
+    $count_sql = "
+        SELECT COUNT(DISTINCT a.id) as total
+        FROM assessments a
+        LEFT JOIN assessment_owners o ON o.assessment_id = a.id
+        WHERE {$where}
+    ";
+
+    $c_stmt = $conn->prepare($count_sql);
+    if ($c_stmt) {
+        if ($types !== '') {
+            $c_stmt->bind_param($types, ...$params);
+        }
+        $c_stmt->execute();
+        $c_res = $c_stmt->get_result();
+        if ($c_row = $c_res->fetch_assoc()) {
+            $total_records = (int)$c_row['total'];
+        }
+        $c_stmt->close();
+    }
+
+    $total_pages = $total_records > 0 ? ceil($total_records / $records_per_page) : 1;
+
+    // Fetch Paginated Records
     $sql = "
         SELECT
-            a.id,
-            a.municipality_name,
-            a.year_of_assessment,
-            a.zone_id,
-            a.ward_id,
-            a.mohalla_id,
-            a.property_id,
-            a.ward,
-            a.new_holding,
-            a.previous_holding,
-            a.property_status,
-            a.old_holding,
-            a.old_pid,
-            a.property_type,
-            a.road,
-            a.plot_area,
-            a.building_type,
-            a.house_no,
-            a.plot_no,
-            a.khata_no,
-            a.khasra_no,
-            a.addr1,
-            a.addr2,
-            a.pincode,
-            a.water_tax,
-            a.verification_status,
-
-            w.ward_no,
-            m.mohalla_name,
-
-            COALESCE(
-                GROUP_CONCAT(
-                    DISTINCT CASE
-                        WHEN o.owner_name IS NOT NULL
-                        THEN o.owner_name
-                    END
-                    SEPARATOR ', '
-                ), ''
-            ) AS owner_name,
-
-            COALESCE(
-                GROUP_CONCAT(
-                    DISTINCT CASE
-                        WHEN o.mobile IS NOT NULL
-                        THEN o.mobile
-                    END
-                    SEPARATOR ', '
-                ), ''
-            ) AS mobile
-
+            a.id, a.municipality_name, a.year_of_assessment, a.zone_id, a.ward_id, a.mohalla_id,
+            a.property_id, a.ward, a.new_holding, a.previous_holding, a.property_status,
+            a.old_holding, a.old_pid, a.property_type, a.road, a.plot_area, a.building_type,
+            a.house_no, a.plot_no, a.khata_no, a.khasra_no, a.addr1, a.addr2, a.pincode,
+            a.water_tax, a.verification_status, w.ward_no, m.mohalla_name,
+            COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN o.owner_name IS NOT NULL THEN o.owner_name END SEPARATOR ', '), '') AS owner_name,
+            COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN o.mobile IS NOT NULL THEN o.mobile END SEPARATOR ', '), '') AS mobile
         FROM assessments a
-
-        LEFT JOIN wards w
-            ON w.ward_id = a.ward_id
-
-        LEFT JOIN mohalla m
-            ON m.mohalla_id = a.mohalla_id
-
-        LEFT JOIN assessment_owners o
-            ON o.assessment_id = a.id
-
+        LEFT JOIN wards w ON w.ward_id = a.ward_id
+        LEFT JOIN mohalla m ON m.mohalla_id = a.mohalla_id
+        LEFT JOIN assessment_owners o ON o.assessment_id = a.id
         WHERE {$where}
-
         GROUP BY
-            a.id,
-            a.municipality_name,
-            a.year_of_assessment,
-            a.zone_id,
-            a.ward_id,
-            a.mohalla_id,
-            a.property_id,
-            a.ward,
-            a.new_holding,
-            a.previous_holding,
-            a.property_status,
-            a.old_holding,
-            a.old_pid,
-            a.property_type,
-            a.road,
-            a.plot_area,
-            a.building_type,
-            a.house_no,
-            a.plot_no,
-            a.khata_no,
-            a.khasra_no,
-            a.addr1,
-            a.addr2,
-            a.pincode,
-            a.water_tax,
-            a.verification_status,
-            w.ward_no,
-            m.mohalla_name
-
+            a.id, a.municipality_name, a.year_of_assessment, a.zone_id, a.ward_id, a.mohalla_id,
+            a.property_id, a.ward, a.new_holding, a.previous_holding, a.property_status,
+            a.old_holding, a.old_pid, a.property_type, a.road, a.plot_area, a.building_type,
+            a.house_no, a.plot_no, a.khata_no, a.khasra_no, a.addr1, a.addr2, a.pincode,
+            a.water_tax, a.verification_status, w.ward_no, m.mohalla_name
         ORDER BY a.id DESC
-        LIMIT 100
+        LIMIT ?, ?
     ";
 
     $stmt = $conn->prepare($sql);
 
     if ($stmt) {
-        if ($types !== '') {
-            $stmt->bind_param($types, ...$params);
-        }
+        // Add limit params dynamically
+        $limit_types = $types . "ii";
+        $limit_params = $params;
+        $limit_params[] = $offset;
+        $limit_params[] = $records_per_page;
+
+        $stmt->bind_param($limit_types, ...$limit_params);
 
         if ($stmt->execute()) {
             $result = $stmt->get_result();
-
             while ($r = $result->fetch_assoc()) {
                 $rows[] = $r;
             }
-
             $result->free();
         }
-
         $stmt->close();
     }
 }
 
-// ---------------------------------------------------------------------
 // Reset link
-// ---------------------------------------------------------------------
 $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
 ?>
 
@@ -386,9 +320,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
 
     <link rel="icon" href="admin/img/favicon.ico">
 
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
     <style>
         :root {
@@ -427,13 +359,14 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             min-height: 100vh;
         }
 
-        /* ------------------------------------------------------------
-           Top Header
-        ------------------------------------------------------------ */
+        /* Top Header */
         .top-header {
             background: var(--white);
             border-bottom: 1px solid var(--kp-border);
             box-shadow: 0 4px 18px rgba(6, 26, 58, .07);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .header-inner {
@@ -522,9 +455,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             transform: translateY(-1px);
         }
 
-        /* ------------------------------------------------------------
-           Main
-        ------------------------------------------------------------ */
+        /* Main */
         .container {
             max-width: 1500px;
             margin: auto;
@@ -560,9 +491,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             background: linear-gradient(90deg, var(--kp-orange), var(--kp-gold));
         }
 
-        /* ------------------------------------------------------------
-           Notice
-        ------------------------------------------------------------ */
+        /* Notice */
         .notice-card {
             background: #fff;
             border: 1px solid var(--kp-border);
@@ -588,9 +517,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             line-height: 1.9;
         }
 
-        /* ------------------------------------------------------------
-           Search Card
-        ------------------------------------------------------------ */
+        /* Search Card */
         .search-card {
             background: #fff;
             border: 1px solid var(--kp-border);
@@ -675,9 +602,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             background: var(--kp-navy-2);
         }
 
-        /* ------------------------------------------------------------
-           Table
-        ------------------------------------------------------------ */
+        /* Table */
         .table-card {
             margin-top: 22px;
             background: #fff;
@@ -693,6 +618,8 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--kp-border);
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .table-title {
@@ -704,11 +631,13 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
         .record-count {
             color: var(--kp-muted);
             font-size: 12px;
+            font-weight: 600;
         }
 
         .table-wrap {
             width: 100%;
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         table {
@@ -757,17 +686,6 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             margin-bottom: 10px;
         }
 
-        .status {
-            display: inline-flex;
-            align-items: center;
-            padding: 5px 9px;
-            border-radius: 50px;
-            font-size: 10px;
-            font-weight: 800;
-            background: var(--kp-orange-soft);
-            color: var(--kp-orange-dark);
-        }
-
         .action-btn {
             width: 32px;
             height: 32px;
@@ -799,9 +717,86 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             background: var(--kp-orange-dark);
         }
 
-        /* ------------------------------------------------------------
-           Demand / Payments Modal
-        ------------------------------------------------------------ */
+        /* Pagination */
+        .pagination-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: #fff;
+            border-top: 1px solid var(--kp-border);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .page-info {
+            font-size: 13px;
+            color: var(--kp-muted);
+            font-weight: 600;
+        }
+
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--kp-border);
+            background: #fff;
+            color: var(--kp-navy);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .page-btn:hover:not(.disabled) {
+            border-color: var(--kp-orange);
+            color: var(--kp-orange);
+        }
+
+        .page-btn.active {
+            background: var(--kp-navy);
+            color: #fff;
+            border-color: var(--kp-navy);
+        }
+
+        .page-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f8fafc;
+        }
+
+        .page-go-form {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+        }
+
+        .page-input {
+            width: 60px;
+            height: 35px;
+            border: 1px solid var(--kp-border);
+            border-radius: 6px;
+            padding: 0 8px;
+            text-align: center;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .page-input:focus {
+            border-color: var(--kp-orange);
+        }
+
+        /* Demand Modal */
         .demand-modal {
             position: fixed;
             inset: 0;
@@ -902,26 +897,6 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             background: #F8FAFC;
         }
 
-        .payment-status {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 4px 9px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 800;
-        }
-
-        .payment-status.paid {
-            color: #087443;
-            background: #DCFCE7;
-        }
-
-        .payment-status.pending {
-            color: #9A5B00;
-            background: #FFF3D6;
-        }
-
         .modal-action {
             display: inline-flex;
             align-items: center;
@@ -933,15 +908,6 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             border: 0;
             text-decoration: none;
             cursor: pointer;
-        }
-
-        .modal-action-demand {
-            color: #222;
-            background: #F5F6F8;
-        }
-
-        .modal-action-demand:hover {
-            background: #E8ECF2;
         }
 
         .modal-action-download {
@@ -971,9 +937,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             color: #B42318;
         }
 
-        /* ------------------------------------------------------------
-           Responsive
-        ------------------------------------------------------------ */
+        /* Responsive */
         @media (max-width: 1050px) {
             .search-grid {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -995,6 +959,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
 
             .header-actions {
                 width: 100%;
+                flex-wrap: wrap;
             }
 
             .header-btn {
@@ -1013,6 +978,17 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
                 align-items: flex-start;
                 flex-direction: column;
             }
+
+            .pagination-container {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .page-go-form {
+                margin-left: 0;
+                margin-top: 10px;
+            }
         }
     </style>
 </head>
@@ -1023,55 +999,34 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
 
         <!-- ============================================================
          HEADER
-    ============================================================= -->
+        ============================================================= -->
         <header class="top-header">
             <div class="header-inner">
-
                 <div class="brand">
-                    <img
-                        src="admin/logo-main.png"
-                        alt="Nagar Palika Parishad Khalilabad"
-                        class="brand-logo">
-
+                    <img src="admin/logo-main.png" alt="Nagar Palika Parishad Khalilabad" class="brand-logo" onerror="this.src='admin/img/logo.png'">
                     <div>
-                        <div class="brand-title">
-                            Nagar Palika Parishad Khalilabad
-                        </div>
-                        <div class="brand-subtitle">
-                            Property Tax &amp; Citizen Services
-                        </div>
+                        <div class="brand-title">Nagar Palika Parishad Khalilabad</div>
+                        <div class="brand-subtitle">Property Tax &amp; Citizen Services</div>
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: 2 BUTTONS -->
                 <div class="header-actions">
-
-                    <!-- Tax Calculator -->
-                    <a
-                        href="tax-calculator.php"
-                        class="header-btn btn-tax"
-                        title="Tax Calculator">
-                        <i class="fa fa-calculator"></i>
-                        Tax Calculator
+                    <a href="#" class="header-btn btn-tax" title="Tax Calculator">
+                        <i class="fa fa-calculator"></i> Tax Calculator
                     </a>
-
-                    <!-- Citizen Login -->
-                    <a
-                        href="citizen-login.php"
-                        class="header-btn btn-citizen"
-                        title="Citizen Login">
-                        <i class="fa fa-user"></i>
-                        Citizen Login
+                    <a href="#" class="header-btn btn-citizen" title="Citizen Login">
+                        <i class="fa fa-user"></i> Citizen Login
                     </a>
-
+                    <a href="#" class="header-btn btn-citizen" title="Apply For Mutation">
+                        <i class="fa fa-edit"></i> Apply For Mutation
+                    </a>
                 </div>
             </div>
         </header>
 
-
         <!-- ============================================================
          MAIN CONTENT
-    ============================================================= -->
+        ============================================================= -->
         <main class="container">
 
             <div class="page-heading">
@@ -1082,173 +1037,92 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
                 </div>
             </div>
 
-
-            <!-- ========================================================
-             SEARCH INSTRUCTIONS
-        ========================================================= -->
             <section class="notice-card">
-
                 <div class="notice-title">
-                    <i class="fa fa-info-circle" style="color:#F28C00;"></i>
-                    Note:
+                    <i class="fa fa-info-circle" style="color:#F28C00;"></i> Note:
                 </div>
-
                 <ol class="notice-list">
                     <li>If you know <strong>ADDRESS CODE</strong>, please enter your address code alone and search.</li>
                     <li>If you know your <strong>MOBILE NO.</strong>, please enter your mobile no alone and search.</li>
                     <li>If you know <strong>OWNER NAME</strong>, please enter owner name &amp; select Mohalla and search.</li>
                     <li>If you know <strong>HOUSE NO.</strong>, please select Mohalla &amp; enter house no and search.</li>
                 </ol>
-
             </section>
 
-
-            <!-- ========================================================
-             SEARCH FORM
-        ========================================================= -->
+            <!-- SEARCH FORM -->
             <section class="search-card">
-
                 <form method="get" action="up-consumerlist.php">
-
                     <div class="search-grid">
-
                         <div class="field">
                             <label for="ward">Ward</label>
-
-                            <select
-                                name="ward"
-                                id="ward"
-                                class="select">
+                            <select name="ward" id="ward" class="select">
                                 <option value="">Select Ward</option>
-
                                 <?php foreach ($ward_list as $w): ?>
-                                    <option
-                                        value="<?= e($w['ward_id']) ?>"
-                                        <?= ((string)$ward === (string)$w['ward_id']) ? 'selected' : '' ?>>
+                                    <option value="<?= e($w['ward_id']) ?>" <?= ((string)$ward === (string)$w['ward_id']) ? 'selected' : '' ?>>
                                         Ward <?= e($w['ward_no']) ?>
                                     </option>
                                 <?php endforeach; ?>
-
                             </select>
                         </div>
-
 
                         <div class="field">
                             <label for="mohalla">Mohalla</label>
-
-                            <select
-                                name="mohalla"
-                                id="mohalla"
-                                class="select">
+                            <select name="mohalla" id="mohalla" class="select">
                                 <option value="">Select Mohalla</option>
-
                                 <?php foreach ($mohalla_list as $m): ?>
-                                    <option
-                                        value="<?= e($m['mohalla_id']) ?>"
-                                        <?= ((string)$mohalla === (string)$m['mohalla_id']) ? 'selected' : '' ?>>
+                                    <option value="<?= e($m['mohalla_id']) ?>" <?= ((string)$mohalla === (string)$m['mohalla_id']) ? 'selected' : '' ?>>
                                         <?= e($m['mohalla_name']) ?>
                                     </option>
                                 <?php endforeach; ?>
-
                             </select>
                         </div>
 
-
                         <div class="field">
                             <label for="house_no">House No</label>
-
-                            <input
-                                type="text"
-                                id="house_no"
-                                name="house_no"
-                                value="<?= e($house_no) ?>"
-                                class="input"
-                                placeholder="House No">
+                            <input type="text" id="house_no" name="house_no" value="<?= e($house_no) ?>" class="input" placeholder="House No">
                         </div>
-
 
                         <div class="field">
                             <label for="address_code">Address Code</label>
-
-                            <input
-                                type="text"
-                                id="address_code"
-                                name="address_code"
-                                value="<?= e($address_code) ?>"
-                                class="input"
-                                placeholder="Address Code">
+                            <input type="text" id="address_code" name="address_code" value="<?= e($address_code) ?>" class="input" placeholder="Address Code">
                         </div>
-
 
                         <div class="field">
                             <label for="mobile">Mobile No</label>
-
-                            <input
-                                type="text"
-                                id="mobile"
-                                name="mobile"
-                                value="<?= e($mobile) ?>"
-                                class="input"
-                                placeholder="Mobile No"
-                                maxlength="15">
+                            <input type="text" id="mobile" name="mobile" value="<?= e($mobile) ?>" class="input" placeholder="Mobile No" maxlength="15">
                         </div>
-
 
                         <div class="field">
                             <label for="owner_name">Owner Name</label>
-
-                            <input
-                                type="text"
-                                id="owner_name"
-                                name="owner_name"
-                                value="<?= e($owner_name) ?>"
-                                class="input"
-                                placeholder="Owner Name">
+                            <input type="text" id="owner_name" name="owner_name" value="<?= e($owner_name) ?>" class="input" placeholder="Owner Name">
                         </div>
-
                     </div>
-
 
                     <div class="search-actions">
-
-                        <button type="submit" class="search-btn">
-                            <i class="fa fa-search"></i>
-                            Search
-                        </button>
-
-                        <a href="<?= e($reset_url) ?>" class="reset-btn">
-                            <i class="fa fa-refresh"></i>
-                            Reset
-                        </a>
-
+                        <button type="submit" class="search-btn"><i class="fa fa-search"></i> Search</button>
+                        <a href="<?= e($reset_url) ?>" class="reset-btn"><i class="fa fa-refresh"></i> Reset</a>
                     </div>
-
                 </form>
-
             </section>
 
-
-            <!-- ========================================================
-             RESULTS
-        ========================================================= -->
+            <!-- RESULTS -->
             <section class="table-card">
 
                 <div class="table-toolbar">
                     <div class="table-title">
-                        <i class="fa fa-list-alt" style="color:#F28C00;"></i>
-                        Consumer / Property Records
+                        <i class="fa fa-list-alt" style="color:#F28C00;"></i> Consumer / Property Records
                     </div>
-
                     <div class="record-count">
-                        <?= $has_search ? count($rows) . ' record(s) found' : 'Search to view records' ?>
+                        <?php if ($has_search): ?>
+                            <span style="color:var(--kp-orange); font-size:14px;"><?= number_format($total_records) ?></span> record(s) found
+                        <?php else: ?>
+                            Search to view records
+                        <?php endif; ?>
                     </div>
                 </div>
 
-
                 <div class="table-wrap">
-
                     <table>
-
                         <thead>
                             <tr>
                                 <th>Sr. No</th>
@@ -1269,122 +1143,102 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
                         </thead>
 
                         <tbody>
-
                             <?php if (!$has_search): ?>
-
                                 <tr>
                                     <td colspan="14">
                                         <div class="empty">
-                                            <i class="fa fa-search"></i>
-                                            Please enter search details to find consumer records.
+                                            <i class="fa fa-search"></i> Please enter search details to find consumer records.
                                         </div>
                                     </td>
                                 </tr>
-
                             <?php elseif (empty($rows)): ?>
-
                                 <tr>
                                     <td colspan="14">
                                         <div class="empty">
-                                            <i class="fa fa-folder-open-o"></i>
-                                            No Data Found
+                                            <i class="fa fa-folder-open-o"></i> No Data Found
                                         </div>
                                     </td>
                                 </tr>
-
                             <?php else: ?>
-
                                 <?php foreach ($rows as $index => $row): ?>
-
                                     <tr>
-
-                                        <td><?= $index + 1 ?></td>
-
-                                        <td>
-                                            <?= e($row['property_id'] ?: $row['new_holding']) ?>
-                                        </td>
-
-                                        <td>
-                                            <?= e($row['property_id'] ?: $row['id']) ?>
-                                        </td>
-
-                                        <td>
-                                            <strong><?= e($row['owner_name']) ?></strong>
-                                        </td>
-
+                                        <td><?= $offset + $index + 1 ?></td>
+                                        <td><?= e($row['property_id'] ?: $row['new_holding']) ?></td>
+                                        <td><?= e($row['property_id'] ?: $row['id']) ?></td>
+                                        <td><strong><?= e($row['owner_name']) ?></strong></td>
                                         <td><?= e($row['mobile']) ?></td>
-
                                         <td><?= e($row['zone_id']) ?></td>
-
                                         <td><?= e($row['ward_no'] !== null ? $row['ward_no'] : $row['ward']) ?></td>
-
                                         <td><?= e($row['mohalla_name']) ?></td>
-
                                         <td><?= e($row['house_no']) ?></td>
-
-                                        <td>
-                                            <span style="color:#9CA3AF;">—</span>
-                                        </td>
-
+                                        <td><span style="color:#9CA3AF;">—</span></td>
                                         <td>—</td>
                                         <td>—</td>
                                         <td>—</td>
-
                                         <td>
                                             <div class="row-actions">
-                                                <a
-                                                    href="view_assesment_details.php?id=<?= (int)$row['id'] ?>"
-                                                    class="action-btn action-view"
-                                                    title="View Property">
-                                                    <i class="fa fa-eye"></i>
-                                                </a>
-
-                                                <button
-                                                    type="button"
-                                                    class="action-btn action-demand"
-                                                    title="Demand / Payments"
-                                                    data-assessment-id="<?= (int)$row['id'] ?>"
-                                                    data-property-no="<?= e($row['property_id'] ?: $row['new_holding']) ?>"
-                                                    data-owner="<?= e($row['owner_name']) ?>">
+                                                <button type="button" class="action-btn action-demand" title="Demand / Payments" data-assessment-id="<?= (int)$row['id'] ?>" data-property-no="<?= e($row['property_id'] ?: $row['new_holding']) ?>" data-owner="<?= e($row['owner_name']) ?>">
                                                     <i class="fa fa-file-text"></i>
                                                 </button>
+                                                <a href="view_assesment_details.php?id=<?= (int)$row['id'] ?>" class="action-btn action-view" title="View Property">
+                                                    <i class="fa fa-download"></i>
+                                                </a>
                                             </div>
                                         </td>
-
                                     </tr>
-
                                 <?php endforeach; ?>
-
                             <?php endif; ?>
-
                         </tbody>
-
                     </table>
-
                 </div>
 
+                <!-- PAGINATION CONTROLS -->
+                <?php if ($has_search && $total_pages > 1): ?>
+                    <div class="pagination-container">
+                        <div class="page-info">
+                            Showing Page <?= $current_page ?> of <?= $total_pages ?>
+                        </div>
+
+                        <div class="page-controls">
+                            <?php if ($current_page > 1): ?>
+                                <a href="?page=<?= $current_page - 1 ?><?= $query_string ?>" class="page-btn">Prev</a>
+                            <?php else: ?>
+                                <span class="page-btn disabled">Prev</span>
+                            <?php endif; ?>
+
+                            <?php if ($current_page < $total_pages): ?>
+                                <a href="?page=<?= $current_page + 1 ?><?= $query_string ?>" class="page-btn">Next</a>
+                            <?php else: ?>
+                                <span class="page-btn disabled">Next</span>
+                            <?php endif; ?>
+
+                            <form method="get" action="up-consumerlist.php" class="page-go-form">
+                                <!-- Retain other GET parameters -->
+                                <?php foreach ($query_params as $k => $v): ?>
+                                    <input type="hidden" name="<?= e($k) ?>" value="<?= e($v) ?>">
+                                <?php endforeach; ?>
+                                <input type="number" name="page" min="1" max="<?= $total_pages ?>" class="page-input" placeholder="Page" required>
+                                <button type="submit" class="page-btn" style="background:var(--kp-navy); color:#fff; height:35px; border:none;">Go</button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
             </section>
-
         </main>
-
     </div>
 
-    <!-- ================================================================
-     DEMAND / PAYMENTS MODAL
-================================================================= -->
+    <!-- DEMAND / PAYMENTS MODAL -->
     <div class="demand-modal" id="demandModal" aria-hidden="true">
         <div class="demand-modal-card" role="dialog" aria-modal="true" aria-labelledby="demandModalTitle">
             <div class="demand-modal-head">
                 <div class="demand-modal-title" id="demandModalTitle">Payments List</div>
                 <button type="button" class="demand-modal-close" id="demandModalClose" aria-label="Close">&times;</button>
             </div>
-
             <div class="demand-modal-body">
                 <div id="demandModalMeta" style="margin-bottom:12px;color:#68758A;font-size:12px;"></div>
                 <div id="demandModalContent">
-                    <div class="modal-loading">
-                        <i class="fa fa-spinner fa-spin"></i> Loading payments...
-                    </div>
+                    <div class="modal-loading"><i class="fa fa-spinner fa-spin"></i> Loading payments...</div>
                 </div>
             </div>
         </div>
@@ -1463,8 +1317,6 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
                                 '<a class="modal-action modal-action-download" href="' + esc(payment.receipt_url) + '" target="_blank" title="Download / Print Receipt"><i class="fa fa-download"></i></a>' :
                                 '<span class="modal-action disabled" title="Receipt available after successful payment"><i class="fa fa-download"></i></span>';
 
-                            const demand = '<a class="modal-action modal-action-demand" href="' + esc(payment.demand_url) + '" target="_blank" title="Open Demand"><i class="fa fa-file"></i></a>';
-
                             html += '<tr>' +
                                 '<td>' + (index + 1) + '</td>' +
                                 '<td>' + esc(payment.property_no || '—') + '</td>' +
@@ -1472,7 +1324,7 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
                                 '<td><strong>' + esc(payment.amount || '0.00') + '</strong></td>' +
                                 '<td>' + esc(payment.payment_mode || '—') + '</td>' +
                                 '<td>' + esc(payment.order_number || '—') + '</td>' +
-                                '<td>' + demand + receipt + '</td>' +
+                                '<td>' + receipt + '</td>' +
                                 '</tr>';
                         });
 
@@ -1492,21 +1344,14 @@ $reset_url = strtok($_SERVER['REQUEST_URI'], '?');
             });
 
             closeBtn.addEventListener('click', closeModal);
-
             modal.addEventListener('click', function(event) {
-                if (event.target === modal) {
-                    closeModal();
-                }
+                if (event.target === modal) closeModal();
             });
-
             document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' && modal.classList.contains('show')) {
-                    closeModal();
-                }
+                if (event.key === 'Escape' && modal.classList.contains('show')) closeModal();
             });
         })();
     </script>
-
 </body>
 
 </html>

@@ -26,7 +26,7 @@ if ($surveyor_id > 0) {
     }
 
     // Fetch assigned ward numbers from 'surveyor_wards' table
-   $stmt_wards = $conn->prepare("
+    $stmt_wards = $conn->prepare("
     SELECT w.ward_no 
     FROM surveyor_wards sw
     INNER JOIN wards w ON sw.ward_id = w.ward_id
@@ -44,11 +44,12 @@ if ($surveyor_id > 0) {
     }
 }
 
-$conn->close();
+// $conn->close();
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -59,12 +60,33 @@ $conn->close();
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #e0f2fe, #f8fafc); }
-        .glass { background: rgba(255, 255, 255, .25); border-radius: 1rem; border: 1px solid rgb(210 207 207 / 30%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .req:after { content: " *"; color: #ef4444; font-weight: 600; }
-        .read-only-input { background-color: #f1f5f9; cursor: not-allowed; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe, #f8fafc);
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, .25);
+            border-radius: 1rem;
+            border: 1px solid rgb(210 207 207 / 30%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .req:after {
+            content: " *";
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .read-only-input {
+            background-color: #f1f5f9;
+            cursor: not-allowed;
+        }
     </style>
 </head>
+
 <body class="flex min-h-screen text-gray-800">
     <?php include 'sidemenu.php' ?>
 
@@ -84,10 +106,10 @@ $conn->close();
                         <div>
                             <label class="block text-sm font-medium mb-2">Profile Picture</label>
                             <div class="w-24 h-24 rounded-full overflow-hidden border border-gray-300">
-                                <img src="surveyors_profile/<?php echo htmlspecialchars($surveyor['username']); ?>/<?php echo htmlspecialchars($surveyor['profile_pic'] ?? ''); ?>" 
-                                     onerror="this.onerror=null;this.src='man.png';" 
-                                     class="w-full h-full object-cover" 
-                                     alt="Profile Picture">
+                                <img src="surveyors_profile/<?php echo htmlspecialchars($surveyor['username']); ?>/<?php echo htmlspecialchars($surveyor['profile_pic'] ?? ''); ?>"
+                                    onerror="this.onerror=null;this.src='man.png';"
+                                    class="w-full h-full object-cover"
+                                    alt="Profile Picture">
                             </div>
                         </div>
                         <div>
@@ -110,22 +132,22 @@ $conn->close();
                             <label class="block text-sm font-medium mb-2">Role</label>
                             <input type="text" value="<?php echo htmlspecialchars($surveyor['role'] ?? ''); ?>" class="w-full p-3 rounded-lg glass read-only-input" readonly>
                         </div>
-                       <div>
-							<label class="block text-sm font-medium mb-2">Status</label>
-							<?php if (!empty($surveyor['status']) && $surveyor['status'] === 'active'): ?>
-								<span class="inline-flex items-center px-3 py-2 rounded-lg bg-green-100 text-green-700 font-semibold">
-									<i class="fa fa-check-circle mr-2"></i> Active
-								</span>
-							<?php elseif (!empty($surveyor['status']) && $surveyor['status'] === 'inactive'): ?>
-								<span class="inline-flex items-center px-3 py-2 rounded-lg bg-red-100 text-red-700 font-semibold">
-									<i class="fa fa-times-circle mr-2"></i> Inactive
-								</span>
-							<?php else: ?>
-								<span class="inline-flex items-center px-3 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold">
-									<i class="fa fa-question-circle mr-2"></i> Unknown
-								</span>
-							<?php endif; ?>
-						</div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Status</label>
+                            <?php if (!empty($surveyor['status']) && $surveyor['status'] === 'active'): ?>
+                                <span class="inline-flex items-center px-3 py-2 rounded-lg bg-green-100 text-green-700 font-semibold">
+                                    <i class="fa fa-check-circle mr-2"></i> Active
+                                </span>
+                            <?php elseif (!empty($surveyor['status']) && $surveyor['status'] === 'inactive'): ?>
+                                <span class="inline-flex items-center px-3 py-2 rounded-lg bg-red-100 text-red-700 font-semibold">
+                                    <i class="fa fa-times-circle mr-2"></i> Inactive
+                                </span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-3 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold">
+                                    <i class="fa fa-question-circle mr-2"></i> Unknown
+                                </span>
+                            <?php endif; ?>
+                        </div>
 
                         <div>
                             <label class="block text-sm font-medium mb-2">Created At</label>
@@ -134,21 +156,21 @@ $conn->close();
                     </div>
                 </div>
 
-               <div class="glass p-6 rounded-2xl">
-					<h2 class="text-lg font-semibold mb-4">Assigned Wards</h2>
-					<div class="flex flex-wrap gap-2">
-						<?php if (!empty($assigned_wards)): ?>
-							<?php foreach ($assigned_wards as $ward): ?>
-    <button class="flex items-center px-3 py-2 rounded-lg bg-blue-100 text-blue-700 font-semibold shadow-sm hover:bg-blue-200 transition">
-        <i class="fa fa-map-marker mr-2"></i> Ward <?php echo htmlspecialchars($ward); ?>
-    </button>
-<?php endforeach; ?>
+                <div class="glass p-6 rounded-2xl">
+                    <h2 class="text-lg font-semibold mb-4">Assigned Wards</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <?php if (!empty($assigned_wards)): ?>
+                            <?php foreach ($assigned_wards as $ward): ?>
+                                <button class="flex items-center px-3 py-2 rounded-lg bg-blue-100 text-blue-700 font-semibold shadow-sm hover:bg-blue-200 transition">
+                                    <i class="fa fa-map-marker mr-2"></i> Ward <?php echo htmlspecialchars($ward); ?>
+                                </button>
+                            <?php endforeach; ?>
 
-						<?php else: ?>
-							<p class="text-center text-gray-500 w-full">No wards have been assigned to this surveyor.</p>
-						<?php endif; ?>
-					</div>
-				</div>
+                        <?php else: ?>
+                            <p class="text-center text-gray-500 w-full">No wards have been assigned to this surveyor.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
 
             </section>
         <?php else: ?>
@@ -160,4 +182,5 @@ $conn->close();
         <?php endif; ?>
     </main>
 </body>
+
 </html>

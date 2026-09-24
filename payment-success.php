@@ -1,114 +1,162 @@
 <?php
-session_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 include "admin/db.php";
 
-/*
-|--------------------------------------------------------------------------
-| Khalilabad Nagar Palika - Payment Success / Order Details
-|--------------------------------------------------------------------------
-| This page is intentionally compatible with the payment tables used by
-| the current project. It safely reads optional columns so an older
-| payment table does not break the page.
-|--------------------------------------------------------------------------
-*/
-
 $order_id = (int)($_GET['id'] ?? $_GET['order_id'] ?? 0);
-$autoprint = isset($_GET['autoprint']) && (string)$_GET['autoprint'] === '1';
+$autoprint = isset($_GET['autoprint']) and (string)$_GET['autoprint'] === '1';
 
-function e($v)
-{
-    return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
-}
-
-function money($v)
-{
-    return number_format((float)($v ?? 0), 2);
-}
-
-function tableExists($conn, $table)
-{
-    $table = $conn->real_escape_string($table);
-    $q = $conn->query("SHOW TABLES LIKE '{$table}'");
-    return $q && $q->num_rows > 0;
-}
-
-function columnExists($conn, $table, $column)
-{
-    if (!tableExists($conn, $table)) {
-        return false;
+if (!function_exists('e')) {
+    function e($v)
+    {
+        return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
     }
-
-    $table = str_replace('`', '', $table);
-    $column = $conn->real_escape_string($column);
-
-    $q = $conn->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'");
-
-    return $q && $q->num_rows > 0;
 }
 
-function rowValue($row, $keys, $default = '')
-{
-    foreach ($keys as $key) {
-        if (
-            isset($row[$key]) &&
-            $row[$key] !== '' &&
-            $row[$key] !== null
-        ) {
-            return $row[$key];
+if (!function_exists('money')) {
+    function money($v)
+    {
+        return number_format((float)($v ?? 0), 2);
+    }
+}
+
+if (!function_exists('tableExists')) {
+    function tableExists($conn, $table)
+    {
+        if (!$conn) return false;
+        $table = $conn->real_escape_string($table);
+        $q = $conn->query("SHOW TABLES LIKE '{$table}'");
+        return $q and $q->num_rows > 0;
+    }
+}
+
+if (!function_exists('columnExists')) {
+    function columnExists($conn, $table, $column)
+    {
+        if (!tableExists($conn, $table)) return false;
+        $table = str_replace('`', '', $table);
+        $column = $conn->real_escape_string($column);
+        $q = $conn->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'");
+        return $q and $q->num_rows > 0;
+    }
+}
+
+if (!function_exists('rowValue')) {
+    function rowValue($row, $keys, $default = '')
+    {
+        if (!is_array($row)) return $default;
+        foreach ($keys as $key) {
+            if (isset($row[$key]) and $row[$key] !== '' and $row[$key] !== null) {
+                return $row[$key];
+            }
         }
+        return $default;
     }
-
-    return $default;
 }
 
-function financialYear($value)
-{
-    $value = trim((string)$value);
-
-    if ($value === '') {
-        return '';
+if (!function_exists('financialYear')) {
+    function financialYear($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '') return '';
+        $value = str_replace(['/', '_'], '-', $value);
+        $value = preg_replace('/\s+/', '', $value);
+        if (preg_match('/^(20\d{2})-(20\d{2})$/', $value, $m)) return $m[1] . '-' . $m[2];
+        if (preg_match('/^(20\d{2})-(\d{2})$/', $value, $m)) return $m[1] . '-' . (2000 + (int)$m[2]);
+        return $value;
     }
+}
 
-    $value = str_replace(['/', '_'], '-', $value);
-    $value = preg_replace('/\s+/', '', $value);
+if (!function_exists('number_to_words_indian')) {
+    function number_to_words_indian($amount)
+    {
+        $amount = round((float)$amount, 2);
+        if ($amount <= 0) return 'Zero';
+        $rupees = (int)floor($amount);
+        $paise  = (int)round(($amount - $rupees) * 100);
+        if ($paise === 100) {
+            $rupees++;
+            $paise = 0;
+        }
+        $words = [];
 
-    if (preg_match('/^(20\d{2})-(20\d{2})$/', $value, $m)) {
-        return $m[1] . '-' . $m[2];
+        // Multi-line arrays to prevent line-wrap parsing errors
+        $ones = [
+            0 => '',
+            1 => 'One',
+            2 => 'Two',
+            3 => 'Three',
+            4 => 'Four',
+            5 => 'Five',
+            6 => 'Six',
+            7 => 'Seven',
+            8 => 'Eight',
+            9 => 'Nine',
+            10 => 'Ten',
+            11 => 'Eleven',
+            12 => 'Twelve',
+            13 => 'Thirteen',
+            14 => 'Fourteen',
+            15 => 'Fifteen',
+            16 => 'Sixteen',
+            17 => 'Seventeen',
+            18 => 'Eighteen',
+            19 => 'Nineteen'
+        ];
+
+        $tens = [0 => '', 1 => 'Ten', 2 => 'Twenty', 3 => 'Thirty', 4 => 'Forty',             5 => 'Fifty', 6 => 'Sixty', 7 => 'Seventy', 8 => 'Eighty', 9 => 'Ninety'];
+        $get_hundreds = function ($num) use ($ones, $tens) {
+            $res = '';
+            if ($num > 99) {
+                $res .= $ones[(int)($num / 100)] . ' Hundred ';
+                $num %= 100;
+            }
+            if ($num > 19) {
+                $res .= $tens[(int)($num / 10)] . ' ' . $ones[$num % 10];
+            } else {
+                $res .= $ones[$num];
+            }
+            return trim($res);
+        };
+
+        $crore = (int)($rupees / 10000000);
+        $rupees %= 10000000;
+        $lakh = (int)($rupees / 100000);
+        $rupees %= 100000;
+        $thousand = (int)($rupees / 1000);
+        $rupees %= 1000;
+        $hundreds = $rupees;
+
+        if ($crore > 0) $words[] = $get_hundreds($crore) . ' Crore';
+        if ($lakh > 0) $words[] = $get_hundreds($lakh) . ' Lakh';
+        if ($thousand > 0) $words[] = $get_hundreds($thousand) . ' Thousand';
+        if ($hundreds > 0) $words[] = $get_hundreds($hundreds);
+
+        $result = implode(' ', $words);
+        if ($paise > 0) $result .= ' and ' . $get_hundreds($paise) . ' Paise';
+        return trim($result);
     }
-
-    if (preg_match('/^(20\d{2})-(\d{2})$/', $value, $m)) {
-        return $m[1] . '-' . (2000 + (int)$m[2]);
-    }
-
-    return $value;
 }
 
 $order = null;
 $years = [];
+$assessment = null;
+$payment_details = null;
+$owners = null;
+$arv_amount = 0;
 
 /* =========================================================
-   ORDER
+   ORDER FETCH
    ========================================================= */
-
-if (
-    $order_id > 0 &&
-    tableExists($conn, 'property_payment_orders')
-) {
-    $stmt = $conn->prepare("
-        SELECT *
-        FROM property_payment_orders
-        WHERE id = ?
-        LIMIT 1
-    ");
-
+if ($order_id > 0 and tableExists($conn, 'property_payment_orders')) {
+    $stmt = $conn->prepare("SELECT * FROM property_payment_orders WHERE id = ? LIMIT 1");
     if ($stmt) {
         $stmt->bind_param("i", $order_id);
         $stmt->execute();
-
-        $order =
-            $stmt->get_result()->fetch_assoc();
-
+        $order = $stmt->get_result()->fetch_assoc();
         $stmt->close();
     }
 }
@@ -116,954 +164,553 @@ if (
 /* =========================================================
    PAYMENT YEARS
    ========================================================= */
-
-if (
-    $order &&
-    tableExists($conn, 'property_payment_years')
-) {
-    $stmt = $conn->prepare("
-        SELECT *
-        FROM property_payment_years
-        WHERE payment_order_id = ?
-        ORDER BY id ASC
-    ");
-
+if ($order and tableExists($conn, 'property_payment_years')) {
+    $stmt = $conn->prepare("SELECT * FROM property_payment_years WHERE payment_order_id = ? ORDER BY id ASC");
     if ($stmt) {
-        $stmt->bind_param(
-            "i",
-            $order_id
-        );
-
+        $stmt->bind_param("i", $order_id);
         $stmt->execute();
-
-        $result =
-            $stmt->get_result();
-
+        $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
             $years[] = $row;
         }
-
         $stmt->close();
     }
 }
 
 /* =========================================================
-   ORDER DATA
+   EXTENDED DETAILS (ASSESSMENTS, OWNERS, ARV)
    ========================================================= */
+$assessment_id = (int)rowValue($order, ['assessment_id', 'property_id'], 0);
 
-$assessment_id = (int)rowValue(
-    $order,
-    ['assessment_id', 'property_id'],
-    0
-);
+if ($assessment_id > 0 and tableExists($conn, 'assessments')) {
+    $astmt = $conn->prepare("SELECT * FROM assessments WHERE id = ? LIMIT 1");
+    if ($astmt) {
+        $astmt->bind_param("i", $assessment_id);
+        $astmt->execute();
+        $assessment = $astmt->get_result()->fetch_assoc();
+        $astmt->close();
+    }
+}
 
-$property_no = rowValue(
-    $order,
-    ['property_no', 'holding_no', 'holding_number'],
-    'N/A'
-);
+if ($assessment_id > 0 and tableExists($conn, 'assessment_owners')) {
+    $ostmt = $conn->prepare("SELECT * FROM assessment_owners WHERE assessment_id = ? ORDER BY id ASC LIMIT 1");
+    if ($ostmt) {
+        $ostmt->bind_param("i", $assessment_id);
+        $ostmt->execute();
+        $owners = $ostmt->get_result()->fetch_assoc();
+        $ostmt->close();
+    }
+}
 
-$payer_name = rowValue(
-    $order,
-    ['payer_name', 'owner_name', 'name'],
-    'N/A'
-);
+if ($assessment_id > 0 and tableExists($conn, 'property_arv_details')) {
+    $arvstmt = $conn->prepare("SELECT total_arv, arv FROM property_arv_details WHERE assessment_id = ? ORDER BY id DESC LIMIT 1");
+    if ($arvstmt) {
+        $arvstmt->bind_param("i", $assessment_id);
+        $arvstmt->execute();
+        $arv_row = $arvstmt->get_result()->fetch_assoc();
+        $arv_amount = (float)rowValue($arv_row, ['total_arv', 'arv'], 0);
+        $arvstmt->close();
+    }
+}
 
-$payer_mobile = rowValue(
-    $order,
-    ['payer_mobile', 'mobile', 'mobile_number'],
-    'N/A'
-);
+if ($order_id > 0 and tableExists($conn, 'property_payment_details')) {
+    $dstmt = $conn->prepare("SELECT * FROM property_payment_details WHERE payment_order_id = ? LIMIT 1");
+    if ($dstmt) {
+        $dstmt->bind_param("i", $order_id);
+        $dstmt->execute();
+        $payment_details = $dstmt->get_result()->fetch_assoc();
+        $dstmt->close();
+    }
+}
 
-$payment_made_at = rowValue(
-    $order,
-    ['payment_made_at', 'payment_at'],
-    'N/A'
-);
+$property_no = rowValue($order, ['property_no', 'holding_no', 'holding_number'], 'N/A');
+$payer_name = rowValue($order, ['payer_name', 'owner_name', 'name'], 'N/A');
+$payer_mobile = rowValue($order, ['payer_mobile', 'mobile', 'mobile_number'], 'N/A');
+$payment_made_at = rowValue($order, ['payment_made_at', 'payment_at'], 'N/A');
+$payment_mode = rowValue($order, ['payment_mode', 'mode_of_payment', 'mode'], 'N/A');
+$order_number = rowValue($order, ['order_number', 'order_no'], 'PAY-' . $order_id);
+$created_at = rowValue($order, ['created_at', 'payment_date'], date('Y-m-d H:i:s'));
+$formatted_date = date('d-m-Y', strtotime($created_at));
 
-$payment_mode = rowValue(
-    $order,
-    ['payment_mode', 'mode_of_payment', 'mode'],
-    'N/A'
-);
+$demand_amount = (float)rowValue($order, ['tax_amount', 'demand_amount', 'demand_tax'], 0);
+$form_fee = (float)rowValue($order, ['form_fee', 'form_fees'], 0);
+$other_amount = (float)rowValue($order, ['other_amount', 'other_charge'], 0);
+$boring_charge = (float)rowValue($order, ['boring_charge', 'boring_fee'], 0);
+$advance_received = (float)rowValue($order, ['advance_received', 'advance_amount', 'advance_deposit'], 0);
+$total_amount = (float)rowValue($order, ['total_amount', 'grand_total', 'amount'], 0);
 
-$status = rowValue(
-    $order,
-    ['payment_status', 'status'],
-    'pending'
-);
+$father_name = rowValue($owners, ['father_husband_pan', 'father_name', 'husband_name'], 'N/A');
+$zone = rowValue($assessment, ['zone', 'zone_id'], 'N/A');
+$ward = rowValue($assessment, ['ward', 'ward_id'], 'N/A');
+$mohalla = rowValue($assessment, ['mohalla', 'mohalla_id'], 'N/A');
+$address = rowValue($assessment, ['address_line1', 'addr1', 'house_no'], 'N/A');
 
-$order_number = rowValue(
-    $order,
-    ['order_number', 'order_no'],
-    'PAY-' . $order_id
-);
+$transaction_id = rowValue($payment_details, ['transaction_id', 'gateway_payment_id', 'cash_reference', 'cheque_number', 'dd_number'], 'N/A');
+if ($transaction_id === '' or $transaction_id === 'N/A') {
+    $transaction_id = rowValue($order, ['gateway_payment_id', 'transaction_id'], 'N/A');
+}
 
-$created_at = rowValue(
-    $order,
-    ['created_at', 'payment_date'],
-    ''
-);
+$receipt_no = "RECEIPT" . str_pad($order_id, 8, "0", STR_PAD_LEFT);
+$property_id_display = $assessment_id > 0 ? str_pad($assessment_id, 7, "0", STR_PAD_LEFT) : 'N/A';
 
-$demand_amount = (float)rowValue(
-    $order,
-    ['tax_amount', 'demand_amount', 'demand_tax'],
-    0
-);
-
-$form_fee = (float)rowValue(
-    $order,
-    ['form_fee', 'form_fees'],
-    0
-);
-
-$other_amount = (float)rowValue(
-    $order,
-    ['other_amount', 'other_charge'],
-    0
-);
-
-$boring_charge = (float)rowValue(
-    $order,
-    ['boring_charge', 'boring_fee'],
-    0
-);
-
-$advance_received = (float)rowValue(
-    $order,
-    ['advance_received', 'advance_amount', 'advance_deposit'],
-    0
-);
-
-$total_amount = (float)rowValue(
-    $order,
-    ['total_amount', 'grand_total', 'amount'],
-    0
-);
-
-/*
- * If the order table does not have the individual amounts, calculate
- * demand amount from payment years.
- */
-if ($demand_amount <= 0 && !empty($years)) {
+/* Calculate Amounts */
+if ($demand_amount <= 0 and !empty($years)) {
     foreach ($years as $y) {
-        $demand_amount += (float)rowValue(
-            $y,
-            ['total_tax', 'tax_amount', 'amount'],
-            0
-        );
+        $demand_amount += (float)rowValue($y, ['total_tax', 'tax_amount', 'amount'], 0);
     }
 }
 
-/*
- * If total_amount is missing/zero, calculate it.
- */
 if ($total_amount <= 0) {
-    $total_amount =
-        $demand_amount +
-        $form_fee +
-        $other_amount +
-        $boring_charge -
-        $advance_received;
-
-    if ($total_amount < 0) {
-        $total_amount = 0;
-    }
+    $total_amount = $demand_amount + $form_fee + $other_amount + $boring_charge - $advance_received;
+    if ($total_amount < 0) $total_amount = 0;
 }
 
-/*
- * Compatibility: older orders may store status in `status`,
- * newer orders may store it in `payment_status`. The page already
- * accepts both through rowValue().
- */
-$status_lower = strtolower(trim((string)$status));
-
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-$is_success =
-    in_array(
-        $status_lower,
-        [
-            'paid',
-            'success',
-            'successful',
-            'completed',
-            'complete'
-        ],
-        true
-    );
-
-$status_label = ucfirst($status_lower);
-
-if ($status_label === '') {
-    $status_label = 'Pending';
-}
-
-$status_class =
-    $is_success
-    ? 'success'
-    : (
-        in_array(
-            $status_lower,
-            ['failed', 'cancelled', 'canceled'],
-            true
-        )
-        ? 'failed'
-        : 'pending'
-    );
-
-/* =========================================================
-   YEAR TOTALS
-   ========================================================= */
-
-$paid_year_count = count($years);
-
-$display_years = [];
-
-foreach ($years as $y) {
-    $fy = financialYear(
-        rowValue(
-            $y,
-            ['financial_year', 'year'],
-            ''
-        )
-    );
-
-    if ($fy !== '') {
-        $display_years[] = $fy;
-    }
-}
-
-$display_years =
-    array_values(
-        array_unique(
-            $display_years
-        )
-    );
+$amount_in_words = strtolower(number_to_words_indian($total_amount));
 ?>
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-<style>
-    :root {
-        --klb-navy: #011341;
-        --klb-navy-2: #071d49;
-        --klb-orange: #f58220;
-        --klb-orange-dark: #dc6d0b;
-        --klb-green: #15803d;
-        --klb-red: #b91c1c;
-        --klb-bg: #f3f7fb;
-        --klb-border: #dfe6ef;
-        --klb-text: #243653;
-        --klb-muted: #718096;
-    }
+<!DOCTYPE html>
+<html lang="hi">
 
-    .ps-page {
-        min-height: calc(100vh - 70px);
-        background: linear-gradient(135deg, #f4f7fb, #edf3f8);
-        padding: 30px 18px;
-    }
+<head>
+    <meta charset="UTF-8">
+    <title>संपत्तिकर भुगतान रसीद - खलीलाबाद</title>
+    <link rel="icon" href="admin/img/favicon.ico">
 
-    .ps-container {
-        max-width: 1000px;
-        margin: auto;
-    }
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap');
 
-    .ps-card {
-        background: #fff;
-        border: 1px solid var(--klb-border);
-        border-radius: 18px;
-        overflow: hidden;
-        box-shadow: 0 10px 35px rgba(1, 19, 65, .08);
-    }
-
-    .ps-top {
-        padding: 30px 28px 24px;
-        text-align: center;
-        border-bottom: 1px solid #e8edf3;
-    }
-
-    .ps-icon {
-        width: 66px;
-        height: 66px;
-        border-radius: 50%;
-        margin: 0 auto 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 29px;
-    }
-
-    .ps-icon.success {
-        background: #ecfdf3;
-        color: var(--klb-green);
-    }
-
-    .ps-icon.pending {
-        background: #fff7ed;
-        color: var(--klb-orange-dark);
-    }
-
-    .ps-icon.failed {
-        background: #fff1f2;
-        color: var(--klb-red);
-    }
-
-    .ps-title {
-        margin: 0;
-        color: var(--klb-navy);
-        font-size: 25px;
-        font-weight: 800;
-    }
-
-    .ps-sub {
-        margin: 7px 0 0;
-        color: var(--klb-muted);
-        font-size: 13px;
-    }
-
-    .ps-order {
-        display: inline-flex;
-        margin-top: 13px;
-        padding: 7px 12px;
-        border-radius: 20px;
-        background: #f4f7fb;
-        color: var(--klb-navy);
-        font-size: 12px;
-        font-weight: 800;
-    }
-
-    .ps-status {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 11px;
-    }
-
-    .ps-status.success {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .ps-status.pending {
-        background: #ffedd5;
-        color: #9a3412;
-    }
-
-    .ps-status.failed {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .ps-body {
-        padding: 24px;
-    }
-
-    .ps-section {
-        margin-bottom: 22px;
-    }
-
-    .ps-section-title {
-        color: var(--klb-navy);
-        font-size: 15px;
-        font-weight: 800;
-        padding-bottom: 11px;
-        border-bottom: 1px solid #e8edf3;
-    }
-
-    .ps-section-title i {
-        color: var(--klb-orange);
-        margin-right: 7px;
-    }
-
-    .ps-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 14px;
-    }
-
-    .ps-table th,
-    .ps-table td {
-        border: 1px solid var(--klb-border);
-        padding: 11px 13px;
-        font-size: 13px;
-    }
-
-    .ps-table th {
-        width: 32%;
-        text-align: left;
-        background: #f7f9fc;
-        color: var(--klb-navy);
-    }
-
-    .ps-table td {
-        color: var(--klb-text);
-    }
-
-    .ps-years {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 14px;
-    }
-
-    .ps-years th,
-    .ps-years td {
-        border: 1px solid var(--klb-border);
-        padding: 11px 8px;
-        text-align: center;
-        font-size: 12px;
-    }
-
-    .ps-years th {
-        background: var(--klb-navy);
-        color: #fff;
-    }
-
-    .ps-years td {
-        color: var(--klb-text);
-    }
-
-    .ps-amount {
-        color: var(--klb-orange-dark);
-        font-weight: 800;
-    }
-
-    .ps-breakdown {
-        border: 1px solid var(--klb-border);
-        border-radius: 12px;
-        overflow: hidden;
-        margin-top: 14px;
-    }
-
-    .ps-line {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        padding: 12px 15px;
-        border-bottom: 1px solid #edf0f4;
-        font-size: 13px;
-    }
-
-    .ps-line:last-child {
-        border-bottom: 0;
-    }
-
-    .ps-line span {
-        color: var(--klb-muted);
-    }
-
-    .ps-line strong {
-        color: var(--klb-navy);
-    }
-
-    .ps-grand {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 15px;
-        padding: 17px;
-        background: #fff6ed;
-        border: 1px solid #ffd7b2;
-        border-radius: 11px;
-    }
-
-    .ps-grand span {
-        color: var(--klb-navy);
-        font-weight: 800;
-    }
-
-    .ps-grand strong {
-        color: var(--klb-orange-dark);
-        font-size: 23px;
-    }
-
-    .ps-words {
-        margin-top: 8px;
-        text-align: right;
-        color: var(--klb-muted);
-        font-size: 12px;
-        font-style: italic;
-    }
-
-    .ps-actions {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 10px;
-        padding-top: 7px;
-    }
-
-    .ps-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        min-width: 130px;
-        padding: 11px 18px;
-        border-radius: 8px;
-        text-decoration: none;
-        border: 0;
-        cursor: pointer;
-        font-weight: 800;
-        font-size: 12px;
-    }
-
-    .ps-btn.primary {
-        background: var(--klb-orange);
-        color: #fff;
-    }
-
-    .ps-btn.primary:hover {
-        background: var(--klb-orange-dark);
-    }
-
-    .ps-btn.navy {
-        background: var(--klb-navy);
-        color: #fff;
-    }
-
-    .ps-btn.gray {
-        background: #64748b;
-        color: #fff;
-    }
-
-    .ps-empty {
-        padding: 20px;
-        text-align: center;
-        color: var(--klb-muted);
-        border: 1px dashed #ccd6e3;
-        border-radius: 9px;
-        margin-top: 14px;
-    }
-
-    @media(max-width:650px) {
-        .ps-page {
-            padding: 15px 10px;
+        :root {
+            --brand-navy: #021842;
+            /* Deep Navy Blue from Logo */
+            --brand-orange: #f58220;
+            /* Bright Orange/Gold from Logo */
+            --text-dark: #1e293b;
+            --text-muted: #475569;
         }
 
-        .ps-body {
-            padding: 15px;
-        }
-
-        .ps-top {
-            padding: 25px 15px 20px;
-        }
-
-        .ps-title {
-            font-size: 20px;
-        }
-
-        .ps-table th,
-        .ps-table td {
-            padding: 9px;
-            font-size: 12px;
-        }
-
-        .ps-table th {
-            width: 40%;
-        }
-
-        .ps-years {
-            min-width: 650px;
-        }
-
-        .ps-years-wrap {
-            overflow-x: auto;
-        }
-
-        .ps-actions {
-            flex-direction: column;
-        }
-
-        .ps-btn {
-            width: 100%;
-        }
-    }
-
-    @media print {
         body {
-            background: #fff !important;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Noto Sans Devanagari', Arial, sans-serif;
+            background: #eef2f6;
+            color: var(--text-dark);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
-        .ps-page {
-            padding: 0;
+        .receipt-container {
+            max-width: 900px;
+            margin: 0 auto;
             background: #fff;
+            padding: 30px 40px;
+            border: 2px solid var(--brand-navy);
+            border-top: 8px solid var(--brand-orange);
+            box-shadow: 0 10px 30px rgba(2, 24, 66, 0.1);
+            box-sizing: border-box;
+            position: relative;
+            border-radius: 4px;
         }
 
-        .ps-card {
-            box-shadow: none;
-            border: 0;
+        .r-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--brand-navy);
+            padding-bottom: 20px;
+            margin-bottom: 25px;
         }
 
-        .ps-actions {
-            display: none;
+        .r-logo {
+            width: 100px;
+            text-align: left;
         }
-    }
-</style>
 
-<div class="ps-page">
+        .r-logo img {
+            width: 100%;
+            max-width: 90px;
+            height: auto;
+        }
 
-    <div class="ps-container">
+        .r-title-wrap {
+            text-align: center;
+            flex: 1;
+            padding: 0 15px;
+        }
 
-        <div class="ps-card">
+        .r-title-wrap h1 {
+            margin: 5px 0;
+            font-size: 28px;
+            color: var(--brand-navy);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
 
-            <?php if (!$order): ?>
+        .r-title-wrap h3 {
+            margin: 5px 0 0;
+            font-size: 16px;
+            color: var(--brand-orange);
+            font-weight: 600;
+        }
 
-                <div class="ps-top">
+        /* NEW RIGHT SIDE WRAPPER (Details + Red Box) */
+        .r-header-right-wrap {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-                    <div class="ps-icon failed">
-                        <i class="fa fa-times"></i>
-                    </div>
+        .r-header-right {
+            text-align: right;
+            font-size: 13px;
+            color: var(--brand-navy);
+            font-weight: 600;
+            line-height: 1.6;
+        }
 
-                    <h2 class="ps-title">
-                        Payment Record Not Found
-                    </h2>
+        /* RIGHT RED BOX (Matching user image) */
+        .right-box {
+            width: 80px;
+            height: 80px;
+            border: 3px solid #ef4444;
+            /* Exact red border from image */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
 
-                    <p class="ps-sub">
-                        The requested payment record does not exist.
-                    </p>
+        .right-box span {
+            color: #ef4444;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+        }
 
+        .right-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .r-details-grid {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.8;
+            color: var(--text-muted);
+        }
+
+        .r-col-left {
+            flex: 1;
+        }
+
+        .r-col-right {
+            text-align: left;
+            min-width: 320px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px dashed #cbd5e1;
+            height: fit-content;
+        }
+
+        .r-details-grid span.val {
+            color: var(--brand-navy);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .r-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            font-size: 13px;
+            border: 1px solid var(--brand-navy);
+        }
+
+        .r-table th,
+        .r-table td {
+            border: 1px solid var(--brand-navy);
+            padding: 10px;
+            text-align: center;
+        }
+
+        .r-table th {
+            font-weight: 700;
+            background: var(--brand-navy);
+            color: #ffffff;
+        }
+
+        .r-table td {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .r-table .text-left {
+            text-align: left;
+        }
+
+        .r-footer-info {
+            font-size: 13px;
+            line-height: 1.8;
+            margin-bottom: 40px;
+            background: #fff7ed;
+            padding: 15px;
+            border-left: 4px solid var(--brand-orange);
+            color: var(--brand-navy);
+        }
+
+        .r-footer-info strong {
+            color: var(--brand-orange);
+        }
+
+        .r-signatures {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--brand-navy);
+            margin-top: 50px;
+            font-weight: 600;
+        }
+
+        .r-signatures .sig-box {
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        .r-signatures .sig-box-right {
+            text-align: center;
+        }
+
+        .note-text {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 20px;
+            max-width: 600px;
+            font-weight: 400;
+        }
+
+        .action-buttons {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .btn-print {
+            padding: 10px 25px;
+            background: var(--brand-orange);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 15px;
+            box-shadow: 0 4px 6px rgba(245, 130, 32, 0.2);
+            transition: background 0.3s;
+        }
+
+        .btn-print:hover {
+            background: #d97015;
+        }
+
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+            }
+
+            .receipt-container {
+                border: 2px solid var(--brand-navy);
+                border-top: 8px solid var(--brand-orange);
+                box-shadow: none;
+                padding: 20px;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .action-buttons {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="receipt-container">
+
+        <!-- Header -->
+        <div class="r-header">
+            <div class="r-logo">
+                <img src="assets/images/logo/logo.png" alt="Nagar Palika Khalilabad Logo">
+            </div>
+
+            <div class="r-title-wrap">
+                <h1>नगर पालिका परिषद खलीलाबाद</h1>
+                <h3>संपत्तिकर भुगतान रसीद (2026-2027)</h3>
+            </div>
+
+            <div class="r-header-right-wrap">
+                <div class="r-header-right">
+                    <div>रसीद/क्रम संख्या- <?= e($order_id) ?></div>
+                    <div>दिनांक- <?= e($formatted_date) ?></div>
                 </div>
 
-                <div class="ps-body">
-
-                    <div class="ps-actions">
-
-                        <a
-                            class="ps-btn navy"
-                            href="javascript:history.back()">
-                            <i class="fa fa-arrow-left"></i>
-                            Go Back
-                        </a>
-
-                    </div>
-
+                <!-- RED BORDERED LOGO BOX ON RIGHT -->
+                <div class="r-logo">
+                    <!-- Placeholder text or your desired image -->
+                    <img src="assets/images/logo/up-logo.png" alt="Nagar Palika Khalilabad Logo">
                 </div>
+            </div>
+        </div>
 
-            <?php else: ?>
+        <!-- Payer Details -->
+        <div class="r-details-grid">
+            <div class="r-col-left">
+                <div>नाम- <span class="val"><?= e($payer_name) ?></span></div>
+                <div>पुत्र/पत्नी/पति- <span class="val"><?= e($father_name) ?></span></div>
+                <div>भवन संख्या- <span class="val"><?= e($property_no) ?></span></div>
+                <div>मुहल्ला- <span class="val"><?= e($mohalla) ?></span></div>
+                <div>वार्षिक मूल्यांकन- <span class="val">₹ <?= money($arv_amount) ?></span></div>
+                <div>मोबाइल न०- <span class="val"><?= e($payer_mobile) ?></span></div>
+                <div>ज़ोन- <span class="val"><?= e($zone) ?></span></div>
+                <div>वार्ड- <span class="val"><?= e($ward) ?></span></div>
+                <div>पता- <span class="val"><?= e($address) ?></span></div>
+            </div>
+            <div class="r-col-right">
+                <div>रसीद संख्या - <span class="val"><?= e($receipt_no) ?></span></div>
+                <div>बिल संख्या - <span class="val"><?= e($order_number) ?></span></div>
+                <div>संपत्ति आईडी - <span class="val"><?= e($property_id_display) ?></span></div>
+                <div>मांग संख्या/एड्रेस कोड - <span class="val">N/A</span></div>
+            </div>
+        </div>
 
-                <!-- HEADER -->
+        <!-- Table -->
+        <table class="r-table">
+            <thead>
+                <tr>
+                    <th class="text-left">वित्तीय-वर्ष</th>
+                    <th>सामान्य कर</th>
+                    <th>जल कर</th>
+                    <th>सीवर कर</th>
+                    <th>छूट</th>
+                    <th>ब्याज/पेनल्टी</th>
+                    <th>योग</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $sum_house = 0;
+                $sum_water = 0;
+                $sum_sewer = 0;
+                $sum_rebate = 0;
+                $sum_penalty = 0;
+                $sum_total = 0;
 
-                <div class="ps-top">
+                if (!empty($years)):
+                    foreach ($years as $year):
+                        $fy = financialYear(rowValue($year, ['financial_year', 'year'], 'N/A'));
+                        $h_tax = (float)rowValue($year, ['house_tax', 'property_tax', 'house_tax_current'], 0);
+                        $w_tax = (float)rowValue($year, ['water_tax', 'water_tax_current'], 0);
+                        $s_tax = (float)rowValue($year, ['sewer_tax', 'sewer_tax_current'], 0);
+                        $rebate = (float)rowValue($year, ['rebate'], 0);
+                        $penalty = (float)rowValue($year, ['penalty', 'interest'], 0);
 
-                    <div class="ps-icon <?= e($status_class) ?>">
+                        $row_total = ($h_tax + $w_tax + $s_tax) - $rebate + $penalty;
+                        if ($row_total <= 0) {
+                            $row_total = (float)rowValue($year, ['total_tax', 'amount'], 0);
+                            if ($h_tax == 0 and $w_tax == 0 and $s_tax == 0) $h_tax = $row_total;
+                        }
 
-                        <?php if ($status_class === 'success'): ?>
+                        $sum_house += $h_tax;
+                        $sum_water += $w_tax;
+                        $sum_sewer += $s_tax;
+                        $sum_rebate += $rebate;
+                        $sum_penalty += $penalty;
+                        $sum_total += $row_total;
+                ?>
+                        <tr>
+                            <td class="text-left" style="color: var(--brand-navy);"><strong><?= e($fy) ?></strong></td>
+                            <td><?= money($h_tax) ?></td>
+                            <td><?= money($w_tax) ?></td>
+                            <td><?= money($s_tax) ?></td>
+                            <td style="color: green;"><?= money($rebate) ?></td>
+                            <td style="color: red;"><?= money($penalty) ?></td>
+                            <td style="color: var(--brand-navy);"><strong><?= money($row_total) ?></strong></td>
+                        </tr>
+                    <?php
+                    endforeach;
+                else:
+                    ?>
+                    <tr>
+                        <td class="text-left"><strong>कर विवरण (N/A)</strong></td>
+                        <td><?= money($demand_amount) ?></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td><?= money($demand_amount) ?></td>
+                    </tr>
+                <?php endif; ?>
 
-                            <i class="fa fa-check"></i>
+                <tr>
+                    <td colspan="6" class="text-left" style="color: var(--brand-navy);">अतिरिक्त शुल्क (फॉर्म/बोरिंग) / एडवांस्ड</td>
+                    <td><?= money($form_fee + $other_amount + $boring_charge - $advance_received) ?></td>
+                </tr>
 
-                        <?php elseif ($status_class === 'failed'): ?>
+                <tr>
+                    <td colspan="6" class="text-left" style="color: var(--brand-navy); font-size: 15px;"><strong>कुल जमा राशि</strong></td>
+                    <td style="color: var(--brand-orange); font-size: 15px;"><strong>₹ <?= money($total_amount) ?></strong></td>
+                </tr>
+            </tbody>
+        </table>
 
-                            <i class="fa fa-times"></i>
+        <!-- Footer Summary -->
+        <div class="r-footer-info">
+            <div><strong>योग शब्दों में - </strong>Rupees <?= e($amount_in_words) ?> only and zero</div>
+            <div><strong>माध्यम: </strong><?= e(ucfirst($payment_mode)) ?> / NB Transaction No - <?= e($transaction_id) ?></div>
+        </div>
 
-                        <?php else: ?>
+        <!-- Signatures -->
+        <div class="r-signatures">
+            <div class="sig-box">
+                <div>दिनांक: <?= e($formatted_date) ?></div>
+                <div>रोकड़िया</div>
+                <div>लेखा अधिकारी/राजस्व अधीक्षक</div>
 
-                            <i class="fa fa-clock-o"></i>
-
-                        <?php endif; ?>
-
-                    </div>
-
-                    <h2 class="ps-title">
-
-                        <?php if ($is_success): ?>
-                            Payment Successful
-                        <?php elseif ($status_class === 'failed'): ?>
-                            Payment Failed
-                        <?php else: ?>
-                            Payment Request Saved
-                        <?php endif; ?>
-
-                    </h2>
-
-                    <p class="ps-sub">
-                        Property tax payment details
-                        for Khalilabad Nagar Palika.
-                    </p>
-
-                    <div class="ps-order">
-
-                        Order:
-                        <?= e($order_number) ?>
-
-                        <span class="ps-status <?= e($status_class) ?>">
-                            <?= e($status_label) ?>
-                        </span>
-
-                    </div>
-
+                <div class="note-text">
+                    टिप्पणी:- अनुज्ञप्ति (लाइसेंसों) की दशा में रसीद अनुज्ञप्ति के स्थान पर प्रयुक्त नहीं की जा सकती और यह
+                    नगर पालिका के अनुज्ञप्ति अस्वीकार कर देने के अधिकार पर कोई प्रतिकूल प्रभाव नहीं डालती |<br>
+                    अवैधानिक निर्माण के गिराये या हटाये जाने हेतु पालिका द्वारा की जाने वाली कार्यवाही पर इसका प्रतिकूल
+                    प्रभाव नहीं पड़ेगा
                 </div>
-
-                <div class="ps-body">
-
-                    <!-- PROPERTY -->
-
-                    <div class="ps-section">
-
-                        <div class="ps-section-title">
-                            <i class="fa fa-home"></i>
-                            Property &amp; Payer Details
-                        </div>
-
-                        <table class="ps-table">
-
-                            <tr>
-                                <th>Property No</th>
-                                <td>
-                                    <?= e($property_no) ?>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <th>Payer / Owner Name</th>
-                                <td>
-                                    <?= e($payer_name) ?>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <th>Mobile Number</th>
-                                <td>
-                                    <?= e($payer_mobile) ?>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <th>Payment Made At</th>
-                                <td>
-                                    <?= e($payment_made_at) ?>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <th>Payment Mode</th>
-                                <td>
-                                    <?= e($payment_mode) ?>
-                                </td>
-                            </tr>
-
-                            <?php if ($created_at !== ''): ?>
-
-                                <tr>
-                                    <th>Order Date</th>
-                                    <td>
-                                        <?= e($created_at) ?>
-                                    </td>
-                                </tr>
-
-                            <?php endif; ?>
-
-                        </table>
-
-                    </div>
-
-                    <!-- YEARS -->
-
-                    <div class="ps-section">
-
-                        <div class="ps-section-title">
-                            <i class="fa fa-calendar"></i>
-                            Paid Financial Years
-                        </div>
-
-                        <?php if (!empty($years)): ?>
-
-                            <div class="ps-years-wrap">
-
-                                <table class="ps-years">
-
-                                    <thead>
-
-                                        <tr>
-                                            <th>Sr. No.</th>
-                                            <th>Financial Year</th>
-                                            <th>Tax Amount</th>
-                                        </tr>
-
-                                    </thead>
-
-                                    <tbody>
-
-                                        <?php foreach (
-                                            $years as $i => $year
-                                        ): ?>
-
-                                            <?php
-                                            $fy = financialYear(
-                                                rowValue(
-                                                    $year,
-                                                    ['financial_year', 'year'],
-                                                    'N/A'
-                                                )
-                                            );
-
-                                            $year_tax = (float)rowValue(
-                                                $year,
-                                                [
-                                                    'total_tax',
-                                                    'tax_amount',
-                                                    'amount'
-                                                ],
-                                                0
-                                            );
-                                            ?>
-
-                                            <tr>
-
-                                                <td>
-                                                    <?= $i + 1 ?>
-                                                </td>
-
-                                                <td>
-                                                    <strong>
-                                                        <?= e(
-                                                            $fy ?: 'N/A'
-                                                        ) ?>
-                                                    </strong>
-                                                </td>
-
-                                                <td class="ps-amount">
-                                                    ₹ <?= money($year_tax) ?>
-                                                </td>
-
-                                            </tr>
-
-                                        <?php endforeach; ?>
-
-                                    </tbody>
-
-                                </table>
-
-                            </div>
-
-                        <?php else: ?>
-
-                            <div class="ps-empty">
-                                <i class="fa fa-info-circle"></i>
-                                No financial year details were stored
-                                with this payment order.
-                            </div>
-
-                        <?php endif; ?>
-
-                    </div>
-
-                    <!-- AMOUNT BREAKDOWN -->
-
-                    <div class="ps-section">
-
-                        <div class="ps-section-title">
-                            <i class="fa fa-calculator"></i>
-                            Payment Amount Details
-                        </div>
-
-                        <div class="ps-breakdown">
-
-                            <div class="ps-line">
-                                <span>Demand / Property Tax</span>
-                                <strong>
-                                    ₹ <?= money($demand_amount) ?>
-                                </strong>
-                            </div>
-
-                            <div class="ps-line">
-                                <span>Form Fee</span>
-                                <strong>
-                                    ₹ <?= money($form_fee) ?>
-                                </strong>
-                            </div>
-
-                            <div class="ps-line">
-                                <span>Other Amount</span>
-                                <strong>
-                                    ₹ <?= money($other_amount) ?>
-                                </strong>
-                            </div>
-
-                            <div class="ps-line">
-                                <span>Boring Charge</span>
-                                <strong>
-                                    ₹ <?= money($boring_charge) ?>
-                                </strong>
-                            </div>
-
-                            <div class="ps-line">
-                                <span>Advance Received</span>
-                                <strong>
-                                    ₹ <?= money($advance_received) ?>
-                                </strong>
-                            </div>
-
-                        </div>
-
-                        <div class="ps-grand">
-
-                            <span>
-                                Total Payable Amount
-                            </span>
-
-                            <strong>
-                                ₹ <?= money($total_amount) ?>
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                    <!-- ACTIONS -->
-
-                    <div class="ps-actions">
-
-                        <?php if ($assessment_id > 0): ?>
-
-                            <!-- <a
-                                class="ps-btn primary"
-                                href="view-saf-calculations.php?id=<?= (int)$assessment_id ?>&tab=collections">
-                                <i class="fa fa-list"></i>
-                                View Collections
-                            </a>
-
-                            <a
-                                class="ps-btn navy"
-                                href="view-saf-calculations.php?id=<?= (int)$assessment_id ?>&tab=demand">
-                                <i class="fa fa-file-text"></i>
-                                Back to Demand
-                            </a> -->
-
-                        <?php endif; ?>
-
-                        <button
-                            type="button"
-                            class="ps-btn gray"
-                            onclick="window.print();">
-                            <i class="fa fa-print"></i>
-                            Print
-                        </button>
-
-                    </div>
-
-                </div>
-
-            <?php endif; ?>
-
+            </div>
+            <div class="sig-box-right">
+                <div>नगर आयुक्त</div>
+                <div>जाँच और समाहरण</div>
+                <div>प्रभारी लिपिक</div>
+                <div style="margin-top: 15px; width: 65px; height: 65px; border: 1.5px dashed var(--brand-navy); display: inline-block; line-height: 65px; font-size: 10px; color: var(--brand-navy); font-weight: bold; border-radius: 4px; background: #f8fafc;">QR CODE</div>
+                <div style="font-size: 10px; margin-top: 5px; font-weight: normal; color: var(--text-muted);">ऑनलाइन रसीद देखने<br>हेतु QR कोड स्कैन करें</div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn-print" onclick="window.print()">Print Receipt</button>
         </div>
 
     </div>
 
-</div>
+    <?php if ($autoprint and $order): ?>
+        <script>
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            });
+        </script>
+    <?php endif; ?>
+</body>
 
-<?php if ($autoprint && $order): ?>
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 500);
-        });
-    </script>
-<?php endif; ?>
-
-<? php // include "include/footer.php"; 
-?>
+</html>
