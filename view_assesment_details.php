@@ -1,23 +1,12 @@
 <?php
-// Enable Error Reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Safely include DB connection
-if (file_exists("db.php")) {
-    include "db.php";
-} elseif (file_exists("admin/db.php")) {
     include "admin/db.php";
-} elseif (file_exists("../admin/db.php")) {
-    include "../admin/db.php";
-} else {
-    die("Error: Database connection file (db.php) not found.");
-}
+
 
 $assessment_id = (int)($_GET['id'] ?? $_GET['assessment_id'] ?? 0);
 

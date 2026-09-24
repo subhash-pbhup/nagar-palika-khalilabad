@@ -1,10 +1,26 @@
 <?php
+// Error reporting on (500 error ki jagah exact issue dikhane ke liye)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include "admin/db.php";
+// Safely checking DB path to prevent 500 Fatal Error
+if (file_exists("admin/db.php")) {
+    include "admin/db.php";
+} elseif (file_exists("db.php")) {
+    include "db.php"; // Fallback if file is inside admin folder
+} else {
+    die("<b>Error:</b> Database connection file (db.php) not found.");
+}
+
+// Checking if $conn object is successfully created
+if (!isset($conn) || !$conn) {
+    die("<b>Error:</b> Database connection failed. Please check db.php credentials.");
+}
 
 $order_id = (int)($_GET['id'] ?? $_GET['order_id'] ?? 0);
 $autoprint = isset($_GET['autoprint']) and (string)$_GET['autoprint'] === '1';
@@ -83,7 +99,6 @@ if (!function_exists('number_to_words_indian')) {
         }
         $words = [];
 
-        // Multi-line arrays to prevent line-wrap parsing errors
         $ones = [
             0 => '',
             1 => 'One',
@@ -107,7 +122,7 @@ if (!function_exists('number_to_words_indian')) {
             19 => 'Nineteen'
         ];
 
-        $tens = [0 => '', 1 => 'Ten', 2 => 'Twenty', 3 => 'Thirty', 4 => 'Forty',             5 => 'Fifty', 6 => 'Sixty', 7 => 'Seventy', 8 => 'Eighty', 9 => 'Ninety'];
+        $tens = [0 => '', 1 => 'Ten', 2 => 'Twenty', 3 => 'Thirty', 4 => 'Forty', 5 => 'Fifty', 6 => 'Sixty', 7 => 'Seventy', 8 => 'Eighty', 9 => 'Ninety'];
         $get_hundreds = function ($num) use ($ones, $tens) {
             $res = '';
             if ($num > 99) {
@@ -202,13 +217,14 @@ if ($assessment_id > 0 and tableExists($conn, 'assessment_owners')) {
     }
 }
 
+// FIXED: Using SELECT * to avoid "Unknown column" error if total_arv doesn't exist
 if ($assessment_id > 0 and tableExists($conn, 'property_arv_details')) {
-    $arvstmt = $conn->prepare("SELECT total_arv, arv FROM property_arv_details WHERE assessment_id = ? ORDER BY id DESC LIMIT 1");
+    $arvstmt = $conn->prepare("SELECT * FROM property_arv_details WHERE assessment_id = ? ORDER BY id DESC LIMIT 1");
     if ($arvstmt) {
         $arvstmt->bind_param("i", $assessment_id);
         $arvstmt->execute();
         $arv_row = $arvstmt->get_result()->fetch_assoc();
-        $arv_amount = (float)rowValue($arv_row, ['total_arv', 'arv'], 0);
+        $arv_amount = (float)rowValue($arv_row, ['total_arv', 'arv', 'annual_rental_value'], 0);
         $arvstmt->close();
     }
 }
@@ -280,9 +296,7 @@ $amount_in_words = strtolower(number_to_words_indian($total_amount));
 
         :root {
             --brand-navy: #021842;
-            /* Deep Navy Blue from Logo */
             --brand-orange: #f58220;
-            /* Bright Orange/Gold from Logo */
             --text-dark: #1e293b;
             --text-muted: #475569;
         }
@@ -351,7 +365,6 @@ $amount_in_words = strtolower(number_to_words_indian($total_amount));
             font-weight: 600;
         }
 
-        /* NEW RIGHT SIDE WRAPPER (Details + Red Box) */
         .r-header-right-wrap {
             display: flex;
             align-items: center;
@@ -366,12 +379,10 @@ $amount_in_words = strtolower(number_to_words_indian($total_amount));
             line-height: 1.6;
         }
 
-        /* RIGHT RED BOX (Matching user image) */
         .right-box {
             width: 80px;
             height: 80px;
             border: 3px solid #ef4444;
-            /* Exact red border from image */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -557,10 +568,8 @@ $amount_in_words = strtolower(number_to_words_indian($total_amount));
                     <div>दिनांक- <?= e($formatted_date) ?></div>
                 </div>
 
-                <!-- RED BORDERED LOGO BOX ON RIGHT -->
                 <div class="r-logo">
-                    <!-- Placeholder text or your desired image -->
-                    <img src="assets/images/logo/up-logo.png" alt="Nagar Palika Khalilabad Logo">
+                    <img src="assets/images/logo/up-logo.png" alt="UP Logo" onerror="this.style.display='none'">
                 </div>
             </div>
         </div>
